@@ -1,0 +1,6 @@
+
+
+executable(
+	'server',
+	'main.cpp'
+)
