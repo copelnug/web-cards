@@ -5,5 +5,6 @@ dep_boost_beast = dependency('boost', modules: ['coroutine', 'system'])
 executable(
 	'server',
 	'main.cpp',
+	'WebsocketSession.cpp',
 	dependencies: [dep_boost_beast, dep_thread]
 )

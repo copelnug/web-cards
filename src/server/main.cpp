@@ -6,6 +6,7 @@
 #include <boost/beast/core/file_base.hpp>
 #include <boost/beast/core/multi_buffer.hpp>
 #include <boost/beast/http.hpp>
+#include <boost/beast/http/field.hpp>
 #include <boost/beast/http/file_body.hpp>
 #include <boost/beast/http/read.hpp>
 #include <boost/beast/http/string_body.hpp>
@@ -18,6 +19,8 @@
 #include <string_view>
 #include <thread>
 #include <utility>
+
+#include "WebsocketSession.hpp"
 
 /*
 	TODO:
@@ -36,31 +39,6 @@ namespace http = boost::beast::http;
 void error(const std::string_view& message)
 {
 	std::cerr << message << std::endl;
-}
-void handle_websocket(tcp::socket socket, http::request<http::string_body> request, boost::asio::yield_context yield)
-{
-	std::cout << "WS   " << request.method() << ": " << request.target() << std::endl;
-
-	boost::beast::error_code ec;
-
-	boost::beast::websocket::stream<tcp::socket> ws{std::move(socket)};
-
-	ws.async_accept(request, yield[ec]);
-	if(ec) return error("Async accept failure");
-
-	for(;;)
-	{
-		boost::beast::multi_buffer buffer;
-		ws.async_read(buffer, yield[ec]);
-		if(ec == boost::beast::websocket::error::closed)
-			break;
-		if(ec) return error("Websocket async read failure");
-		std::cout << "WSMSG:" << boost::beast::buffers_to_string(buffer.data()) << std::endl; // Could use make_printable(buffer.data()) to send to stream, but we will need to read it anyway
-		
-		ws.text(ws.got_text());
-		ws.async_write(buffer.data(), yield[ec]);
-		if(ec) error("Websocket async write failure");
-	}
 }
 template <typename Send>
 void handle_request(http::request<http::string_body> request, Send send)
@@ -83,7 +61,7 @@ void handle_request(http::request<http::string_body> request, Send send)
 				std::make_tuple(http::status::ok, request.version())
 			};
 			res.set(http::field::server, "0.1");
-			res.set(http::field::content_type, "text/html");
+			res.set(http::field::content_type, "text/html; charset=utf-8");
 			res.content_length(size);
 			res.keep_alive(request.keep_alive());
 			return send(std::move(res));
@@ -124,11 +102,8 @@ void do_session(tcp::socket& socket, boost::asio::yield_context yield)
 
 		if(boost::beast::websocket::is_upgrade(req))
 		{
-			return handle_websocket(
-				std::move(socket),
-				std::move(req),
-				yield
-			);
+			WebsocketSession ws{std::move(socket)};
+			return ws(std::move(req), yield);
 		}
 
 		handle_request(std::move(req), [&close, &socket, &ec, yield](auto&& response) -> void {
