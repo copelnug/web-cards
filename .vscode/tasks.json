@@ -7,9 +7,10 @@
 			"label": "build",
 			"type": "meson",
 			"mode": "build",
-			"problemMatcher": [
-				"$gcc"
-			],
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/build"]
+			},
 			"group": {
 				"kind": "build",
 				"isDefault": true
@@ -26,9 +27,10 @@
 			"args": [
 				"../${relativeFile}^"
 			],
-			"problemMatcher": [
-				"$gcc"
-			],
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/build"]
+			},
 			"presentation": {
 				"echo": true,
 				"reveal": "silent",
