@@ -46,7 +46,6 @@
 				textbox.value = ""; // TODO Disable sending until the message come back and clear then instead
 				var message = {
 					"type": "CHAT",
-					"source": "TODO",
 					"message": text
 				};
 				socket.send(JSON.stringify(message));

@@ -36,6 +36,7 @@ void WebsocketSession::operator()(boost::beast::http::request<boost::beast::http
 
 	for(;;)
 	{
+		buffer_.consume(buffer_.size());
 		ws_.async_read(buffer_, yield[ec]);
 		if(ec == boost::beast::websocket::error::closed)
 			break;
