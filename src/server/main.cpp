@@ -14,12 +14,14 @@
 #include <boost/beast/websocket/detail/error.hpp>
 #include <boost/beast/websocket/rfc6455.hpp>
 #include <boost/beast/websocket/stream.hpp>
+#include <boost/make_shared.hpp>
 #include <boost/system/error_code.hpp>
 #include <chrono>
 #include <string_view>
 #include <thread>
 #include <utility>
 
+#include "SessionsManager.hpp"
 #include "WebsocketSession.hpp"
 
 /*
@@ -84,7 +86,7 @@ void handle_request(http::request<http::string_body> request, Send send)
 	res.prepare_payload();
 	return send(std::move(res));
 }
-void do_session(tcp::socket& socket, boost::asio::yield_context yield)
+void do_session(boost::shared_ptr<SessionsManager> sessions, tcp::socket& socket, boost::asio::yield_context yield)
 {
 	bool close = false;
 	boost::system::error_code ec;
@@ -102,8 +104,11 @@ void do_session(tcp::socket& socket, boost::asio::yield_context yield)
 
 		if(boost::beast::websocket::is_upgrade(req))
 		{
-			WebsocketSession ws{std::move(socket)};
-			return ws(std::move(req), yield);
+			// TODO Change to smart ptr. Because we need the class to stay alive as long as a thread is executing a coroutine in that instance.
+			// For example, another thread may be running a coroutine that will broadcast a message to all WebsocketSession. Thus we need that to 
+			// finish before we can destroy the WebsocketSession.
+			auto ws = boost::make_shared<WebsocketSession>(sessions, std::move(socket));
+			return ws->run(std::move(req), yield);
 		}
 
 		handle_request(std::move(req), [&close, &socket, &ec, yield](auto&& response) -> void {
@@ -117,7 +122,7 @@ void do_session(tcp::socket& socket, boost::asio::yield_context yield)
 	}
 	socket.shutdown(tcp::socket::shutdown_send, ec);
 }
-void do_listen(boost::asio::io_context& ioc, tcp::endpoint endpoint, boost::asio::yield_context yield)
+void do_listen(boost::shared_ptr<SessionsManager> sessions, boost::asio::io_context& ioc, tcp::endpoint endpoint, boost::asio::yield_context yield)
 {
 	tcp::acceptor acceptor{ioc};
 	acceptor.open(endpoint.protocol());
@@ -139,6 +144,7 @@ void do_listen(boost::asio::io_context& ioc, tcp::endpoint endpoint, boost::asio
 			acceptor.get_executor().context(),
 			std::bind(
 				&do_session,
+				sessions,
 				std::move(socket),
 				std::placeholders::_1
 			)
@@ -151,11 +157,13 @@ int main()
 	const short port = 8080;
 	const int nb_threads = 2;
 
+	auto sessions = boost::make_shared<SessionsManager>();
 	boost::asio::io_context ioc{nb_threads};
 
 	boost::asio::spawn(ioc,
 		std::bind(
 			&do_listen,
+			sessions,
 			std::ref(ioc),
 			tcp::endpoint(boost::asio::ip::make_address("127.0.0.1"), port),
 			std::placeholders::_1

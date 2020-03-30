@@ -5,6 +5,8 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include "SessionsManager.hpp"
+
 #include <iostream>
 namespace
 {
@@ -32,13 +34,15 @@ namespace
 		return !queue.empty();
 	}
 }
-WebsocketSession::WebsocketSession(boost::asio::ip::tcp::socket socket) :
+WebsocketSession::WebsocketSession(boost::shared_ptr<SessionsManager> sessions, boost::asio::ip::tcp::socket socket) :
+	sessions_{std::move(sessions)},
 	ws_{std::move(socket)}
 {}
 WebsocketSession::~WebsocketSession()
 {
+	sessions_->sessionRemove(this->weak_from_this());
 }
-void WebsocketSession::operator()(boost::beast::http::request<boost::beast::http::string_body> initial_request, boost::asio::yield_context yield)
+void WebsocketSession::run(boost::beast::http::request<boost::beast::http::string_body> initial_request, boost::asio::yield_context yield)
 {
 	std::cout << "WS   " << initial_request.method() << ": " << initial_request.target() << std::endl;
 
@@ -52,6 +56,8 @@ void WebsocketSession::operator()(boost::beast::http::request<boost::beast::http
 
 	ws_.async_accept(initial_request, yield[ec]);
 	if(ec) return error("Async accept failure");
+
+	sessions_->sessionRegister(this->weak_from_this());
 
 	for(;;)
 	{
@@ -81,7 +87,7 @@ void WebsocketSession::operator()(boost::beast::http::request<boost::beast::http
 			std::ostringstream os;
 			pt::write_json(os, response);
 
-			send(boost::make_shared<const std::string>(std::move(os).str()), yield);
+			sessions_->broadcast(std::move(os).str(), yield);
 		}
 		else
 		{
