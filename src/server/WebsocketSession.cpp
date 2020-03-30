@@ -1,6 +1,7 @@
 #include "WebsocketSession.hpp"
 
 #include <boost/beast/core/buffers_to_string.hpp>
+#include <boost/make_shared.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -11,6 +12,24 @@ namespace
 	void error(const std::string_view& message)
 	{
 		std::cerr << message << std::endl;
+	}
+	using queue_type = std::queue<boost::shared_ptr<const std::string>>;
+	bool addToQueue(queue_type& queue, std::mutex& mut, boost::shared_ptr<const std::string>&& message)
+	{
+		std::lock_guard<std::mutex> l{mut};
+		queue.push(std::move(message));
+		return queue.size() == 1;
+	}
+	boost::shared_ptr<const std::string> front(queue_type& queue, std::mutex& mut)
+	{
+		std::lock_guard<std::mutex> l{mut};
+		return queue.front();
+	}
+	bool popQueue(queue_type& queue, std::mutex& mut)
+	{
+		std::lock_guard<std::mutex> l{mut};
+		queue.pop();
+		return !queue.empty();
 	}
 }
 WebsocketSession::WebsocketSession(boost::asio::ip::tcp::socket socket) :
@@ -59,16 +78,29 @@ void WebsocketSession::operator()(boost::beast::http::request<boost::beast::http
 			response.put("message", data.get("message", ""));
 			response.put("source", id);
 
-			std::ostream os{&buffer_};
+			std::ostringstream os;
 			pt::write_json(os, response);
 
-			ws_.text(ws_.got_text());
-			ws_.async_write(buffer_.data(), yield[ec]);
-			if(ec) error("Websocket async write failure");
+			send(boost::make_shared<const std::string>(std::move(os).str()), yield);
 		}
 		else
 		{
 			error("Unknown message");
 		}
+	}
+}
+void WebsocketSession::send(boost::shared_ptr<const std::string> message, boost::asio::yield_context yield)
+{
+	if(addToQueue(queue_, mut_, std::move(message)))
+	{
+		do
+		{
+			boost::beast::error_code ec;
+
+			const auto& current = front(queue_, mut_);
+			boost::asio::const_buffer buffer{current->c_str(), current->size()};
+			ws_.async_write(buffer, yield[ec]);
+			if(ec) error("Websocket async write failure");
+		} while(popQueue(queue_, mut_));
 	}
 }
