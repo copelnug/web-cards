@@ -8,7 +8,7 @@
 			"name": "(gdb) Lancer",
 			"type": "cppdbg",
 			"request": "launch",
-			"program": "${workspaceFolder}/build/meson-out/server",
+			"program": "${workspaceFolder}/build/src/server/server",
 			"args": [],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}/src/web",

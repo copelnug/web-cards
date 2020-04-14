@@ -3,7 +3,7 @@
 	// pour voir la documentation sur le format de tasks.json
 	"version": "2.0.0",
 	"tasks": [
-		{
+		/*{
 			"label": "build",
 			"type": "meson",
 			"mode": "build",
@@ -14,6 +14,29 @@
 			"group": {
 				"kind": "build",
 				"isDefault": true
+			},
+			"presentation": {
+				"echo": true,
+				"reveal":"always",
+				"focus": false,
+				"panel": "shared"
+			}
+		},*/
+		{
+			"label": "compile_cpp",
+			"group": {
+				"kind":"build",
+				"isDefault": true
+			},
+			"type": "shell",
+			"options": {
+				"cwd": "${workspaceFolder}/build"
+			},
+			"command": "ninja",
+			"args": [],
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/build"]
 			},
 			"presentation": {
 				"echo": true,
