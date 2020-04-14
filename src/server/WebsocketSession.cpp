@@ -1,16 +1,9 @@
 #include "WebsocketSession.hpp"
 
-#include <boost/beast/core/buffers_to_string.hpp>
-#include <boost/make_shared.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
+#include "Server.hpp"
 
-#include "SessionsManager.hpp"
-
-#include <iostream>
 namespace
 {
-	namespace pt = boost::property_tree;
 	void error(const std::string_view& message)
 	{
 		std::cerr << message << std::endl;
@@ -34,17 +27,23 @@ namespace
 		return !queue.empty();
 	}
 }
-WebsocketSession::WebsocketSession(boost::shared_ptr<SessionsManager> sessions, boost::asio::ip::tcp::socket socket) :
-	sessions_{std::move(sessions)},
-	ws_{std::move(socket)}
+WebsocketSession::WebsocketSession(Server* server, boost::asio::ip::tcp::socket socket, std::string session, boost::asio::yield_context yield) :
+	server_{std::move(server)},
+	session_{std::move(session)},
+	ws_{std::move(socket)},
+	yield_{yield}
 {}
 WebsocketSession::~WebsocketSession()
 {
-	sessions_->sessionRemove(this->weak_from_this());
+	server_->removeConnection(session_, endpoint_, yield_);
+}
+void WebsocketSession::close()
+{
+	ws_.lowest_layer().close();
 }
 void WebsocketSession::run(boost::beast::http::request<boost::beast::http::string_body> initial_request, boost::asio::yield_context yield)
 {
-	std::cout << "WS   " << initial_request.method() << ": " << initial_request.target() << std::endl;
+	endpoint_ = initial_request.target().to_string();
 
 	/*for(auto const& field : initial_request)
 		std::cout << "\t" << field.name() << "=" << field.value() << std::endl;//*/
@@ -57,7 +56,7 @@ void WebsocketSession::run(boost::beast::http::request<boost::beast::http::strin
 	ws_.async_accept(initial_request, yield[ec]);
 	if(ec) return error("Async accept failure");
 
-	sessions_->sessionRegister(this->weak_from_this());
+	server_->acceptConnection(this->shared_from_this(), yield);
 
 	for(;;)
 	{
@@ -67,32 +66,8 @@ void WebsocketSession::run(boost::beast::http::request<boost::beast::http::strin
 			break;
 		if(ec) return error("Websocket async read failure");
 
-		std::cout << "WSMSG:" << boost::beast::buffers_to_string(buffer_.data()) << std::endl; // Could use make_printable(buffer.data()) to send to stream, but we will need to read it anyway
-		
 		std::istream is{&buffer_};
-		pt::ptree data;
-		pt::read_json(is, data);
-		
-		auto type = data.get_optional<std::string>("type");
-		if(!type)
-			error("Websocket unknow message");
-
-		if(*type == "CHAT")
-		{
-			pt::ptree response;
-			response.put("type", "CHAT");
-			response.put("message", data.get("message", ""));
-			response.put("source", id);
-
-			std::ostringstream os;
-			pt::write_json(os, response);
-
-			sessions_->broadcast(std::move(os).str(), yield);
-		}
-		else
-		{
-			error("Unknown message");
-		}
+		server_->onMessage(this->shared_from_this(), is, yield);
 	}
 }
 void WebsocketSession::send(boost::shared_ptr<const std::string> message, boost::asio::yield_context yield)

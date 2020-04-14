@@ -1,0 +1,640 @@
+#include "LobbyEnfer.hpp"
+
+#include <boost/make_shared.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+#include <random>
+#include <sstream>
+#include <stdexcept>
+
+#include "Enfer.hpp"
+#include "Exception.hpp"
+#include "Server.hpp"
+#include "StandardCards.hpp"
+
+namespace
+{
+	namespace pt = boost::property_tree;
+	using Cards::Enfer::State;
+
+	constexpr const char* TRAD(const char* msg)
+	{
+		// TODO
+		return msg;
+	}
+	std::optional<std::string> createMessageForNextAction(const Cards::Enfer::Game& game)
+	{
+		switch(game.state())
+		{
+			case State::SetTarget:
+				return LobbyEnfer::serializeAskTarget(game.roundNbCards());
+			case State::Play:
+				return LobbyEnfer::serializeAskChooseCard();
+			case State::GotoNext:
+				return LobbyEnfer::serializeAskNextRound();
+			case State::Finished:
+				break;
+		}
+		return {};
+	}
+	pt::ptree buildScoreNode(const Cards::Enfer::Game::ScoreCase& score)
+	{
+		// TODO Indicate success/failure?
+		pt::ptree node;
+
+		std::ostringstream out;
+		out << score.target << "-" << score.points;
+		
+		node.put_value(std::move(out).str());
+		return node;
+	}
+}
+void LobbyEnfer::implSendTo(const std::string& session, std::string message, boost::asio::yield_context yield)
+{
+	auto [it, end] = connections_.equal_range(session);
+
+	auto msg = boost::make_shared<std::string>(std::move(message));
+	for(; it != end; ++it)
+	{
+		if(auto conn = it->second.lock())
+		{
+			conn->send(msg, yield);
+		}
+	}
+}
+void LobbyEnfer::implSendToAll(std::string message, boost::asio::yield_context yield)
+{
+	auto msg = boost::make_shared<std::string>(std::move(message));
+	for(auto& [s, ptr] : connections_)
+	{
+		if(auto conn = ptr.lock())
+		{
+			conn->send(msg, yield);
+		}
+	}
+}
+void LobbyEnfer::implSendStateToAll(boost::asio::yield_context yield)
+{
+	if(game_)
+	{
+		const auto Usernames = server().translateUsers(players_);
+
+		for(unsigned short i = 0; i < Usernames.size(); ++i)
+		{
+			implSendTo(players_[i], serializeGameState(Usernames, *game_, i), yield);
+		}
+	}
+}
+void LobbyEnfer::implSendNextAction(boost::asio::yield_context yield)
+{
+	if(game_)
+	{
+		auto msg = createMessageForNextAction(*game_);
+		if(msg)
+		{
+			if(game_->state() == State::GotoNext)
+				implSendTo(creator_, *std::move(msg), yield);
+			else
+				implSendTo(players_[game_->currentPlayer()], *std::move(msg), yield);
+		}
+	}
+}
+LobbyEnfer::LobbyEnfer(Server* server, std::string creatorSessionId) :
+	Lobby{server},
+	creator_{std::move(creatorSessionId)},
+	randomEngine_{}
+{
+	// TODO Get seed from caller
+	std::random_device r;
+	std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
+	randomEngine_.seed(seed);
+}
+std::optional<std::string> LobbyEnfer::getHtmlFile(const std::string_view&) const
+{
+	return "game/enfer.html";
+}
+void LobbyEnfer::join(const boost::shared_ptr<WebsocketSession>& connection, boost::asio::yield_context yield)
+{
+	// TODO Send when not locked
+	std::lock_guard<std::mutex> l{mut_};
+	if(game_)
+	{
+		if(game_->state() == State::Finished)
+		{
+			connection->close();
+			return;
+		}
+
+		// Are we in the running game?
+		auto it = std::find(players_.begin(), players_.end(), connection->session());
+		if(it == players_.end())
+		{
+			connection->close();
+			return;
+		}
+
+		unsigned short playerIndex = it - players_.begin();
+
+		const auto Usernames = server().translateUsers(players_);
+		connections_.emplace(connection->session(), connection);
+		connection->send(boost::make_shared<std::string>(serializeGameState(Usernames, *game_, playerIndex)), yield);
+		
+		if(playerIndex == game_->currentPlayer())
+		{
+			auto msg = createMessageForNextAction(*game_);
+			if(msg)
+			{
+				connection->send(boost::make_shared<std::string>(*std::move(msg)), yield);
+			}
+		}
+		return;
+	}
+	else
+	{
+		connections_.emplace(connection->session(), connection);
+
+		// New player
+		if(std::find(players_.begin(), players_.end(), connection->session()) == players_.end())
+		{
+			players_.push_back(connection->session());
+			implSendToAll(serializePlayerList(server().translateUsers(players_)), yield);
+		}
+
+		if(connection->session() == creator_)
+		{
+			connection->send(boost::make_shared<const std::string>(serializeHostStart()), yield);
+		}
+
+		auto user = server().getUser(connection->session());
+		if(user.username.empty())
+		{
+			connection->send(boost::make_shared<const std::string>(serializeAskUsername()), yield);
+		}
+	}
+
+}
+bool LobbyEnfer::leave(const std::string& session, boost::asio::yield_context yield)
+{
+	// TODO Send without locking Lobby
+	std::lock_guard<std::mutex> l{mut_};
+
+	bool last = true;
+	auto [it, end] = connections_.equal_range(session);
+	for(; it != end; ++it)
+	{
+		// Remove any expired session
+		if(it->second.expired())
+		{
+			it = connections_.erase(it);
+			break;
+		}
+		// Can't be the last, we keep at least one connection alive
+		last = false;
+	}
+	// Did we delete the last
+	last = last && it == end;
+	
+	if(game_)
+	{
+		if(game_->state() == State::Finished)
+		{
+			return players_.empty();
+		}
+		return false;
+	}
+	else if(last)
+	{
+		players_.erase(std::find(players_.begin(), players_.end(), session));
+		implSendToAll(serializePlayerList(server().translateUsers(players_)), yield);
+		return players_.empty();
+	}
+	return false;
+}
+bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection, const boost::property_tree::ptree& message, boost::asio::yield_context yield)
+{
+	// TODO send without lock
+	std::lock_guard<std::mutex> l{mut_};
+	try
+	{
+		auto it = std::find(players_.begin(), players_.end(), connection->session());
+		if(it == players_.end())
+			throw std::logic_error{"TODO"};
+		unsigned short index = it - players_.begin();
+
+		auto type = message.get_optional<std::string>(MSG_ENTRY_TYPE);
+		if(!type)
+			throw std::runtime_error{"TODO"};
+
+		if(*type != "START" && *type != "SET_USERNAME" && !game_)
+			throw std::runtime_error{"TODO"};
+
+		if(*type == "START")
+		{
+			if(connection->session() != creator_)
+				throw std::runtime_error{"TODO"};
+
+			if(players_.size() < 3)
+				throw std::runtime_error{"TODO"};
+			// TODO max number
+
+			if(game_)
+				throw std::runtime_error{"TODO"};
+
+			std::seed_seq seed{randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_()};
+			std::shuffle(players_.begin(), players_.end(), randomEngine_);
+			game_ = Cards::Enfer::Game{static_cast<unsigned short>(players_.size()), seed};
+
+			implSendStateToAll(yield);
+			implSendNextAction(yield);
+		}
+		else if(*type == "TARGET")
+		{
+			auto target = message.get_optional<unsigned short>("target");
+			if(!target)
+				throw std::runtime_error{"TODO"};
+			game_->setTarget(index, *target);
+
+			implSendStateToAll(yield);
+			implSendNextAction(yield);
+		}
+		else if(*type == "PLAY")
+		{
+			auto kind = fromJsonString<Cards::Standard::Kind>(message.get_optional<std::string>("card.kind"));
+			if(!kind)
+				throw std::runtime_error{"TODO"};
+			auto value = fromJsonString<Cards::Standard::Value>(message.get_optional<std::string>("card.value"));
+			if(!value)
+				throw std::runtime_error{"TODO"};
+		
+			game_->play(index, {*kind, *value});
+
+			implSendStateToAll(yield);
+			implSendNextAction(yield);
+		}
+		else if(*type == "NEXT")
+		{
+			// TODO validate player that can do next
+			game_->gotoNextRound();
+
+			implSendStateToAll(yield);
+			implSendNextAction(yield);
+		}
+		else if(*type == "SET_USERNAME")
+		{
+			auto username = message.get_optional<std::string>("username");
+			if(!username)
+				throw std::runtime_error{"TODO"};
+
+			server().setUsername(connection->session(), *std::move(username));
+			if(!game_)
+			{
+				implSendToAll(serializePlayerList(server().translateUsers(players_)), yield);
+			}
+		}
+		else
+		{
+			std::cerr << "Unknown type: " << *type << std::endl;
+			throw std::runtime_error{"TODO"};
+		}
+
+		return false;
+	}
+	// TODO Handle exceptions specific to game and error messages 
+	catch(const Cards::IllegalChoice& ex)
+	{
+		connection->send(boost::make_shared<std::string>(serializeIllegalChoice()), yield);
+		return false;
+	}
+	catch(const Cards::ActionOutOfStep& ex)
+	{
+		implSendStateToAll(yield);
+		implSendNextAction(yield);
+		connection->send(boost::make_shared<std::string>(serializeActionOutOfStep()), yield);
+		return false;
+	}
+	catch(const Cards::NotPlayerTurn& ex)
+	{
+		implSendStateToAll(yield);
+		implSendNextAction(yield);
+		connection->send(boost::make_shared<std::string>(serializeNotPlayerTurn()), yield);
+		return false;
+	}
+	catch(...)
+	{
+		std::cerr << "Unnexpected exception" << std::endl;
+		implSendStateToAll(yield);
+		implSendNextAction(yield);
+		return false;
+	}
+}
+std::string LobbyEnfer::serializePlayerList(const std::vector<std::string>& usernames)
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "PLAYERS");
+
+	pt::ptree array;
+	pt::ptree node;
+	for(auto& player: usernames)
+	{
+		if(player.empty())
+			node.put_value(TRAD("Inconnu"));
+		else
+			node.put_value(player);
+		array.push_back(std::make_pair("", node));
+	}
+	msg.add_child("players", array);
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string LobbyEnfer::serializeHostStart()
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "ASK_START");
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string LobbyEnfer::serializeAskUsername(const std::string& current)
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "ASK_USERNAME");
+	if(!current.empty())
+		msg.put("current", current);
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string LobbyEnfer::serializeGameState(const std::vector<std::string>& usernames, const Cards::Enfer::Game& game, unsigned short player)
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "STATE");
+
+	if(game.strong())
+	{
+		msg.put("strong.kind", toJsonString(game.strong()->kind));
+		msg.put("strong.value", toJsonString(game.strong()->value));
+	}
+
+	// Let's input the currently played cards
+	auto startingPlayer = game.handStartingPlayer();
+	pt::ptree array;
+	for(unsigned short i = 0; i < game.numberOfPlayers(); ++i)
+	{
+		pt::ptree node;
+		Cards::Enfer::PlayerIter p{game.numberOfPlayers(), startingPlayer};
+		p += i;
+
+		node.put("player", usernames[p]);
+		node.put("state", toJsonString(game.roundState(p)));
+		if(game.currentHand().size() > i)
+		{
+			node.put("card.kind", toJsonString(game.currentHand()[i].kind));
+			node.put("card.value", toJsonString(game.currentHand()[i].value));
+		}
+		array.push_back(std::make_pair("", node));
+	}
+	msg.add_child("play", std::move(array));
+
+
+	// Player hand
+	array.clear();
+	const auto& hand = game.playerHand(player);
+	for(auto& card : hand)
+	{
+		pt::ptree node;
+		node.put("kind", toJsonString(card.kind));
+		node.put("value", toJsonString(card.value));
+
+		if(game.currentHand().empty() || game.currentHand().size() == game.numberOfPlayers() || Cards::Enfer::canPlay(hand, card, game.currentHand().front()))
+		{
+			node.put("playable", true);
+		}
+		array.push_back(std::make_pair("", node));
+
+	}
+	msg.add_child("hand", std::move(array));
+
+	// Score header
+	array.clear();
+	pt::ptree row;
+	row.put("style", "header");
+	pt::ptree data;
+	pt::ptree node;
+	node.put_value(TRAD("Cartes"));
+	data.push_back(std::make_pair("", node));
+	for(auto& player : usernames)
+	{
+		node.clear();
+		node.put_value(player);
+		data.push_back(std::make_pair("", node));
+	}
+	row.add_child("data", data);
+	array.push_back(std::make_pair("", row));
+
+
+	// Main score
+	for(unsigned short i = 1; i <= game.scoredRound(); ++i)
+	{
+		row.clear();
+		data.clear();
+		row.put("style", "normal");
+
+		node.clear();
+		node.put_value(Cards::Enfer::roundTitle(game.numberOfPlayers(), i));
+		data.push_back(std::make_pair("", node));
+		
+		for(unsigned short j = 0; j < game.numberOfPlayers(); ++j)
+		{
+			data.push_back(std::make_pair("", buildScoreNode(game.scoreFor(j, i))));
+		}
+		row.add_child("data", data);
+		array.push_back(std::make_pair("", row));
+	}
+
+	// Ranking
+	if(game.state() == State::Finished)
+	{
+		row.clear();
+		data.clear();
+		row.put("style", "header");
+		
+		node.clear();
+		node.put_value(TRAD("Classement"));
+		data.push_back(std::make_pair("", node));
+
+		std::vector<unsigned short> score;
+		for(unsigned short i = 0; i < game.numberOfPlayers(); ++i)
+		{
+			score.push_back(game.scoreFor(i, game.scoredRound()).points);
+		}
+		std::sort(score.begin(), score.end(), [](unsigned short p1, unsigned short p2) {
+			return p1 > p2;
+		});
+
+		for(unsigned short i = 0; i < game.numberOfPlayers(); ++i)
+		{
+			auto pscore = game.scoreFor(i, game.scoredRound()).points;
+			
+			auto it = std::find(score.begin(), score.end(), pscore);
+			
+			std::ostringstream out;
+			out << (it - score.begin() + 1);
+			
+			node.clear();
+			node.put_value(std::move(out).str());
+			data.push_back(std::make_pair("", node));
+		}
+		row.add_child("data", data);
+		array.push_back(std::make_pair("", row));
+	}
+
+	msg.add_child("score", std::move(array));
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string LobbyEnfer::serializeAskTarget(unsigned short maxCards)
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "ASK_INTEGER");
+	msg.put("msg", TRAD("Combien de mains ferez vous?"));
+	msg.put("min", 0);
+	msg.put("max", maxCards);
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string LobbyEnfer::serializeAskChooseCard()
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "PLAY_CARD");
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string LobbyEnfer::serializeAskNextRound()
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "ASK_CONFIRM");
+	msg.put("msg", TRAD("Passez à la prochaine manche?"));
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string LobbyEnfer::serializeIllegalChoice()
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "INPUT_INVALID");
+	msg.put("msg", TRAD("Choix invalide. Réessayez SVP."));
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string LobbyEnfer::serializeActionOutOfStep()
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "ERROR");
+	msg.put("msg", TRAD("Erreur. Cette action n’est pas celle attendue."));
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string LobbyEnfer::serializeNotPlayerTurn()
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "ERROR");
+	msg.put("msg", TRAD("Erreur. Ce n’est pas votre tour."));
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
+}
+std::string toJsonString(const Cards::Enfer::Round::PlayerStatus& status)
+{
+	// TODO Use std::format or similar
+	if(status.target)
+	{
+		std::stringstream out;
+		out << status.obtained;
+		out << TRAD(" sur ");
+		out << *status.target;
+		return std::move(out).str();
+	}
+	return TRAD("?");
+}
+const char* toJsonString(const Cards::Standard::Kind& kind)
+{
+	using Cards::Standard::Kind;
+	switch(kind)
+	{
+		case Kind::Clover:
+			return "CLOVER";
+		case Kind::Heart:
+			return "HEART";
+		case Kind::Pike:
+			return "PIKE";
+		case Kind::Tile:
+			return "TILE";
+	}
+	return "";
+}
+template <>
+std::optional<Cards::Standard::Kind> fromJsonString<Cards::Standard::Kind>(const std::string& text)
+{
+	// TODO Make cleaner
+
+	using Cards::Standard::Kind;
+	const static std::vector<Kind> Kinds{Kind::Clover, Kind::Heart, Kind::Pike, Kind::Tile};
+	for(auto& kind : Kinds)
+		if(toJsonString(kind) == text)
+			return kind;
+	return {};
+}
+const char* toJsonString(const Cards::Standard::Value& value)
+{
+	using Cards::Standard::Value;
+	switch(value)
+	{
+		case Value::Two: return "TWO";
+		case Value::Three: return "THREE";
+		case Value::Four: return "FOUR";
+		case Value::Five: return "FIVE";
+		case Value::Six: return "SIX";
+		case Value::Seven: return "SEVEN";
+		case Value::Eight: return "EIGHT";
+		case Value::Nine: return "NINE";
+		case Value::Ten: return "TEN";
+		case Value::Jack: return "JACK";
+		case Value::Queen: return "QUEEN";
+		case Value::King: return "KING";
+		case Value::Ace: return "ACE";
+	}
+	return "";
+}
+template <>
+std::optional<Cards::Standard::Value> fromJsonString<Cards::Standard::Value>(const std::string& text)
+{
+	// TODO Make cleaner: Reflexion? a isIn function?
+
+	using Cards::Standard::Value;
+	const static std::vector<Value> Values{
+		Value::Two, Value::Three, Value::Four, Value::Five, Value::Six, Value::Seven, Value::Eight, Value::Nine,
+		Value::Ten, Value::Jack, Value::Queen, Value::King, Value::Ace
+	};
+	for(auto& value : Values)
+		if(toJsonString(value) == text)
+			return value;
+	return {};
+
+}

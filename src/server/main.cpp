@@ -21,7 +21,7 @@
 #include <thread>
 #include <utility>
 
-#include "SessionsManager.hpp"
+#include "Server.hpp"
 #include "WebsocketSession.hpp"
 
 /*
@@ -37,56 +37,7 @@
 using tcp = boost::asio::ip::tcp;
 namespace http = boost::beast::http;
 
-#include <iostream>
-void error(const std::string_view& message)
-{
-	std::cerr << message << std::endl;
-}
-template <typename Send>
-void handle_request(http::request<http::string_body> request, Send send)
-{
-	std::cout << "HTTP " << request.method() << ": " << request.target() << std::endl;
-	if(request.method() == http::verb::get)
-	{
-		if(request.target() == "/")
-		{
-			http::file_body::value_type body;
-			boost::beast::error_code ec;
-			body.open("index.html", boost::beast::file_mode::scan, ec);
-			if(ec) return error("Request read failed.");
-
-			auto const size = body.size();
-
-			http::response<http::file_body> res{
-				std::piecewise_construct,
-				std::make_tuple(std::move(body)),
-				std::make_tuple(http::status::ok, request.version())
-			};
-			res.set(http::field::server, "0.1");
-			res.set(http::field::content_type, "text/html; charset=utf-8");
-			res.content_length(size);
-			res.keep_alive(request.keep_alive());
-			return send(std::move(res));
-		}
-		// TODO Utils functions to populate the response...
-		http::response<http::string_body> res{http::status::not_found, request.version()};
-		res.set(http::field::server, "0.1");
-		res.set(http::field::content_type, "text/html");
-		res.keep_alive(request.keep_alive());
-		res.body() = "The resource '" + request.target().to_string() + "' was not found.";
-		res.prepare_payload();
-		return send(std::move(res));
-	}
-
-	http::response<http::string_body> res{http::status::bad_request, request.version()};
-	res.set(http::field::server, "0.1");
-	res.set(http::field::content_type, "text/html");
-	res.keep_alive(request.keep_alive());
-	res.body() = "Unsupported operation";
-	res.prepare_payload();
-	return send(std::move(res));
-}
-void do_session(boost::shared_ptr<SessionsManager> sessions, tcp::socket& socket, boost::asio::yield_context yield)
+void do_session(Server* server, tcp::socket& socket, boost::asio::yield_context yield)
 {
 	bool close = false;
 	boost::system::error_code ec;
@@ -104,17 +55,15 @@ void do_session(boost::shared_ptr<SessionsManager> sessions, tcp::socket& socket
 
 		if(boost::beast::websocket::is_upgrade(req))
 		{
-			// TODO Change to smart ptr. Because we need the class to stay alive as long as a thread is executing a coroutine in that instance.
+			// We use shared_ptr because we need the class to stay alive as long as a thread is executing a coroutine in that instance.
 			// For example, another thread may be running a coroutine that will broadcast a message to all WebsocketSession. Thus we need that to 
 			// finish before we can destroy the WebsocketSession.
-			auto ws = boost::make_shared<WebsocketSession>(sessions, std::move(socket));
+			auto ws = server->canAcceptConnection(std::move(socket), req, yield);
 			return ws->run(std::move(req), yield);
 		}
+		
+		server->handleRequest(std::move(req), Server::Sender{socket, ec, close, yield});
 
-		handle_request(std::move(req), [&close, &socket, &ec, yield](auto&& response) -> void {
-			http::async_write(socket, response, yield[ec]);
-			close = response.need_eof();
-		});
 		if(ec)
 			; // TODO
 		if(close)
@@ -122,7 +71,7 @@ void do_session(boost::shared_ptr<SessionsManager> sessions, tcp::socket& socket
 	}
 	socket.shutdown(tcp::socket::shutdown_send, ec);
 }
-void do_listen(boost::shared_ptr<SessionsManager> sessions, boost::asio::io_context& ioc, tcp::endpoint endpoint, boost::asio::yield_context yield)
+void do_listen(Server* server, boost::asio::io_context& ioc, tcp::endpoint endpoint, boost::asio::yield_context yield)
 {
 	tcp::acceptor acceptor{ioc};
 	acceptor.open(endpoint.protocol());
@@ -144,7 +93,7 @@ void do_listen(boost::shared_ptr<SessionsManager> sessions, boost::asio::io_cont
 			acceptor.get_executor().context(),
 			std::bind(
 				&do_session,
-				sessions,
+				server,
 				std::move(socket),
 				std::placeholders::_1
 			)
@@ -157,15 +106,15 @@ int main()
 	const short port = 8080;
 	const int nb_threads = 2;
 
-	auto sessions = boost::make_shared<SessionsManager>();
+	Server server;
 	boost::asio::io_context ioc{nb_threads};
 
 	boost::asio::spawn(ioc,
 		std::bind(
 			&do_listen,
-			sessions,
+			&server,
 			std::ref(ioc),
-			tcp::endpoint(boost::asio::ip::make_address("127.0.0.1"), port),
+			tcp::endpoint(boost::asio::ip::make_address("0.0.0.0"), port),
 			std::placeholders::_1
 		)
 	);

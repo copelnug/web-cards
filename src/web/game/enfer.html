@@ -1,0 +1,581 @@
+<html>
+	<head>
+		<title>Enfer</title>
+
+		<script>
+			let HiddenClass = 'hidden';
+			let KindMap = new Map([
+				['CLOVER', '\u2663'],
+				['HEART', '\u2665'],
+				['PIKE', '\u2660'],
+				['TILE', '\u2666']
+			]);
+
+			let ValueMap = new Map([
+				['TWO', '2'],
+				['THREE', '3'],
+				['FOUR', '4'],
+				['FIVE', '5'],
+				['SIX', '6'],
+				['SEVEN', '7'],
+				['EIGHT', '8'],
+				['NINE', '9'],
+				['TEN', '10'],
+				['JACK', 'J'],
+				['QUEEN', 'Q'],
+				['KING', 'K'],
+				['ACE', 'A']
+			]);
+
+			let hand = new Map();
+			var choosenCard = undefined;
+
+			// https://stackoverflow.com/a/6944772
+			let socket = new WebSocket("ws://" + location.host + location.pathname);
+			socket.onopen = function(e) {
+				// Setup?
+			};
+			socket.onclose = function(event) {
+			}
+			socket.onerror = function(error) {
+			};
+
+			function send(msg) {
+				socket.send(JSON.stringify(msg));
+			}
+			function utilAddCardTo(parentNode, id, card, active=false) {
+				var cardDiv = document.createElement('div');
+				cardDiv.classList.add('card');
+
+				if(card.kind) {
+					cardDiv.classList.add(card.kind.toLowerCase());
+					cardDiv.append(ValueMap.get(card.value));
+					cardDiv.append(KindMap.get(card.kind));
+				}
+				else {
+					cardDiv.classList.add('back');
+				}
+				if(id != '') {
+					cardDiv.id = id;
+				}
+				if(active && card.playable) {
+					cardDiv.setAttribute('onclick', 'handCardClicked(this)');
+					cardDiv.classList.add('playable');
+				}
+
+				parentNode.appendChild(cardDiv);
+			}
+			function utilDrawHand(active=false) {
+				var handNode = document.getElementById('play_hand');
+				handNode.innerHTML = '';
+				hand.forEach( function (card, cardId) {
+					hand.set(cardId, card);
+					utilAddCardTo(handNode, cardId, card, active);
+				});
+			}
+
+			function usernameChanged() {
+				var textbox = document.getElementById("play_event_username_input");
+				var username = textbox.value.trim();
+
+				var btn = document.getElementById("play_event_username_accept");
+				btn.disabled = username === '';
+			}
+			function hideAllEvents() {
+				document.getElementById('play_event_target').classList.add(HiddenClass);
+				document.getElementById('play_event_username').classList.add(HiddenClass);
+				document.getElementById('play_event_next').classList.add(HiddenClass);
+				document.getElementById('play_event_start').classList.add(HiddenClass);
+				document.getElementById('play_event_choose').classList.add(HiddenClass);
+				document.getElementById('play_event_choose_confirm').classList.add(HiddenClass);
+
+				var list = document.getElementsByClassName("event_error");
+				for(var i = 0; i < list.length; ++i) {
+					var node = list[i];
+					node.classList.add(HiddenClass);
+					node.innerHTML = "";
+				}
+			}
+			function eventAskUsername() {
+				hideAllEvents();
+
+				var textbox = document.getElementById("play_event_username_input");
+				textbox.value = '';
+				usernameChanged();
+
+				document.getElementById('play_event_username').classList.remove(HiddenClass);
+			}
+			function eventAskStart() {
+				hideAllEvents();
+				document.getElementById('play_event_start').classList.remove(HiddenClass);				
+			}
+			function eventAskTarget(msg) {
+				hideAllEvents();
+
+				var label = document.getElementById("play_event_target_question");
+				label.innerText = msg.msg;
+
+				var input = document.getElementById("play_event_target_input");
+				input.value = msg.min;
+				input.setAttribute("min", msg.min);
+				input.setAttribute("max", msg.max);
+
+				document.getElementById('play_event_target').classList.remove(HiddenClass);	
+			}
+			function eventAskCard() {
+				hideAllEvents();
+				utilDrawHand(true);
+
+				document.getElementById('play_event_choose').classList.remove(HiddenClass);	
+			}
+			function eventAskNextRound(msg) {
+				hideAllEvents();
+
+				var label = document.getElementById("play_event_next_question");
+				label.innerText = msg.msg;
+
+				document.getElementById('play_event_next').classList.remove(HiddenClass);
+			}
+			function eventPlayers(msg) {
+				var parentNode = document.getElementById('players_list');
+				parentNode.innerHTML = ''
+
+				msg.players.forEach(function (player) {
+					var node = document.createElement('p');
+					node.innerText = player;
+					parentNode.appendChild(node);
+				});
+			}
+			function eventUpdateState(state) {
+
+				// Strong card
+				var strongNode = document.getElementById('play_strong');
+				if(state.strong) {
+					strongNode.classList.remove(HiddenClass);
+					
+					var parentNode = document.getElementById('play_strong_card');
+					parentNode.innerHTML = ''
+
+					utilAddCardTo(parentNode, '', state.strong);
+				}
+				else {
+					strongNode.classList.add(HiddenClass);
+				}
+
+				// Hand
+				hand.clear();
+				if(state.hand)
+				{
+					state.hand.forEach( function (card, index) {
+						var cardId = 'hand_card_' + index;
+						hand.set(cardId, card);
+					});
+				}
+				utilDrawHand();
+
+				// Current play
+				var currentNode = document.getElementById('play_current');
+				currentNode.innerHTML = '';
+				state.play.forEach( function (item) {
+					var rootNode = document.createElement('div');
+					
+					var node = document.createElement('p');
+					node.innerText = item.player;
+					rootNode.appendChild(node);
+
+					node = document.createElement('p');
+					node.innerText = item.state;
+					rootNode.appendChild(node);
+
+					if(item.card) {
+						utilAddCardTo(rootNode, '', item.card);
+					}
+					else {
+						utilAddCardTo(rootNode, '', {});
+					}
+
+					currentNode.appendChild(rootNode);
+				});
+
+				// Score
+				var tableNode = document.getElementById('score_table');
+				tableNode.innerHTML = '';
+				state.score.forEach(function (itemRow) {
+					var row = document.createElement('tr');
+
+					var entryType = 'td';
+					if(itemRow.style === 'header') {
+						entryType = 'th';
+					}
+					
+					itemRow.data.forEach(function (item) {
+						var node = document.createElement(entryType);
+						node.innerText = item;
+						row.appendChild(node);
+					});
+
+					tableNode.appendChild(row);
+				});	
+			}
+			function eventError(msg) {
+				var list = document.getElementsByClassName("event_error");
+
+				for(var i = 0; i < list.length; ++i) {
+					var node = list[i];
+					node.innerHTML = "";
+					node.innerText = msg.msg;
+					node.classList.remove(HiddenClass);
+				};
+			}
+			function eventNetworkUpdate(msg) {
+				if(msg.type === "STATE") {
+					eventUpdateState(msg);
+				}
+				else if(msg.type === "PLAYERS") {
+					eventPlayers(msg);
+				}
+				else if(msg.type === "INPUT_INVALID") {
+					// Ask again
+					eventNetworkUpdate(lastMsg);
+					eventError(msg);
+				}
+				else if(msg.type === "ERROR") {
+					eventError(msg);
+				}
+				else {
+					if(msg.type === "ASK_USERNAME") {
+						eventAskUsername();
+					}
+					else if(msg.type === "ASK_START") {
+						eventAskStart();
+					}
+					else if(msg.type === "ASK_INTEGER") {
+						eventAskTarget(msg);
+					}
+					else if(msg.type === "PLAY_CARD") {
+						eventAskCard();
+					}
+					else if(msg.type === "ASK_CONFIRM") {
+						eventAskNextRound(msg);
+					}
+					else {
+						return; // Do not save the last message
+					}
+					// Save last message to allow asking again
+					lastMsg = msg;
+				}
+			}
+			function acceptUsername() {
+				var textbox = document.getElementById("play_event_username_input");
+				var username = textbox.value.trim();
+
+				if(username !== '')
+				{
+					hideAllEvents();
+
+					var msg = {
+						"type": "SET_USERNAME",
+						"username": username
+					};
+					send(msg);
+				}
+			}
+			function acceptStart() {
+				hideAllEvents();
+				
+				var msg = {
+					"type": "START"
+				};
+				send(msg);
+			}
+			function acceptTarget() {
+				var textbox = document.getElementById("play_event_target_input");
+				var target = textbox.value.trim();
+
+				if(target !== '')
+				{
+					hideAllEvents();
+
+					var msg = {
+						"type": "TARGET",
+						"target": target
+					};
+					send(msg);
+				}
+			}
+			function handCardClicked(source) {
+				choosenCard = hand.get(source.id);
+
+				var cardHolder = document.getElementById('play_event_choose_confirm_card');
+				cardHolder.innerHTML = ''
+
+				utilAddCardTo(cardHolder, '', choosenCard);
+
+				hideAllEvents();
+				document.getElementById('play_event_choose_confirm').classList.remove(HiddenClass);	
+			}
+			function acceptCard() {
+				hideAllEvents();
+				utilDrawHand();
+
+				var msg = {
+					'type': 'PLAY',
+					'card': choosenCard
+				};
+				send(msg);
+			}
+			function refuseCard() {
+				eventAskCard()
+			}
+			function acceptNext() {
+				hideAllEvents();
+
+				var msg = {
+					'type': 'NEXT'
+				};
+				send(msg);
+			}
+			function toggleView() {
+				document.getElementById('view_play').classList.toggle(HiddenClass);
+				document.getElementById('view_score').classList.toggle(HiddenClass);
+			}
+
+
+			socket.onmessage = function(event) {
+				var response = JSON.parse(event.data);
+				eventNetworkUpdate(response);
+			};
+		</script>
+		<style>
+			body {
+				padding: 0px;
+				margin: 0px;
+				background-color:wheat;
+			}
+			.smallButton {
+				border: 1px solid black;
+				border-radius: 5px;
+				background-color: grey;
+				width: 50px;
+				height: 50px;
+			}
+			.smallButton:hover {
+				border: 1px solid yellow;
+				background-color: lightgrey;
+			}
+			#viewButton {
+				position: absolute;
+				left: 0px;
+				top: 0px;
+				text-align: center;
+				font-weight: bold;
+			}
+			#view_score {
+				width: 100%;
+				text-align: center;
+			}
+			#view_score table {
+				border-collapse: collapse;
+				width: 98%;
+				margin-left: auto;
+				margin-right: auto;
+				table-layout:fixed;
+			}
+			#view_score td, #view_score th {
+				border: 1px solid black;
+				text-align: center;
+			}
+			#view_play {
+				margin: 0px;
+				padding: 0px;
+				min-width: 100%;
+				min-height: 100vh;
+			}
+			#view_play>div {
+				margin: 0px;
+				width: 100%;
+				height: 100%;
+				display: flex;
+				align-items: stretch;
+				text-align: center;
+				flex-direction: column;
+			}
+			#play_current {
+				width: 100%;
+				display: block;
+				flex-grow: 0;
+			}
+			#play_current>div {
+				display: inline-block;
+			}
+			#play_middle {
+				width: 100%-10px;
+				flex-grow: 1;
+				margin: 10px;
+				padding: 0px;
+				text-align: center;
+				
+				display: flex;
+				flex-direction: row;
+				align-items: stretch;
+			}
+			#play_left_bar {
+				min-width: 10vw;
+				flex-grow: 0;
+			}
+			#play_right_bar {
+				text-align: right;
+				flex-grow: 0
+			}
+			#play_right_bar>p {
+				font-weight: bold;
+			}
+			#play_event {
+				margin: 0 auto;
+				float:unset;
+				width: 50%;
+				display: block;
+				border-radius: 20px;
+				display: flex;
+				flex-direction: row;
+				align-items: stretch;
+			}
+			.play_event_input {
+				border: 2px solid black;
+				border-radius: 20px;
+				background-color:seashell;
+				display: flex;
+				flex-direction: column;
+				justify-content:center;
+				align-items: center;
+				text-align: center;
+				width: 100%;
+				font-size: xx-large;
+			}
+			.event_error {
+				color:darkred;
+			}
+			#play_hand {
+				display: block;
+				align-self: flex-end;
+				flex-direction: row;
+				text-align: center;
+				width: 100%;
+				min-height: 20%;
+				flex-grow: 0;
+			}
+			.card {
+				margin: 1px;
+				padding: 5px;
+				display: inline-block;
+				border: 1px solid black;
+				border-radius: 5px;
+				height: 12vw;
+				width: 10vw;
+				vertical-align: middle;
+				text-align: left;
+				font-size: xxx-large;
+				font-weight: bold;
+				background-size: cover;
+				background-repeat: no-repeat;
+				background-color: lightgray;
+			}
+			.playable:hover {
+				border: 2px solid yellow;
+			}
+			.heart,.tile {
+				color:darkred;
+			}
+			.clover,.pike {
+				color: black;
+			}
+			.back {
+				background-color:lightblue;
+			}
+			.buttonRow>button {
+				margin: 5px;
+				margin-top: 20px;
+				display: inline-block;
+			}
+			.hidden {
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="viewButton" class="smallButton" onclick="toggleView()">Pts</div>
+		<div id="view_score" class="hidden">
+			<h1>Pointage</h1>
+			<table id="score_table">
+			</table>
+		</div>
+
+		<div id="view_play" class="">
+			<div>
+				<div id="play_current">
+				</div>
+				<div id="play_middle">
+					<div id="play_left_bar">
+						<div id="play_strong" class="hidden">
+							<p>Atout:</p>
+							<div id="play_strong_card">
+							</div>
+						</div>
+					</div>
+					<div id="play_event">
+						<div id="play_event_username" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label for="askUsername">Nom d’utilisateur:</label>
+							<br/>
+							<input id="play_event_username_input" type="text" maxlength="20" oninput="usernameChanged()" />
+							<br/>
+							<button id="play_event_username_accept" onclick="acceptUsername()">Ok</button>
+						</div>
+						<div id="play_event_start" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label>Commencez la partie?</label>
+							<br/>
+							<button id="play_event_start_go" onclick="acceptStart()">Ok</button>
+						</div>
+						<div id="play_event_target" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label id="play_event_target_question" for="askNumber"></label>
+							<br/>
+							<input id="play_event_target_input" type="number" />
+							<br/>
+							<button onclick="acceptTarget()">Ok</button>
+						</div>
+						<div id="play_event_choose" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label>Choisissez une carte.</label>
+						</div>
+						<div id="play_event_choose_confirm" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label>Êtes-vous certain de vouloir jouer cette carte?</label>
+							<div id="play_event_choose_confirm_card" >
+							</div>
+
+							<div class="buttonRow">
+								<button onclick='acceptCard()'>Oui</button>
+								<button onclick='refuseCard()'>Non</button>
+							</div>
+						</div>
+						<div id="play_event_next" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label id="play_event_next_question"></label>
+							<br/>
+							<button onclick="acceptNext()">Ok</button>
+						</div>
+					</div>
+					<div id="play_right_bar">
+						<p>Joueurs</p>
+						<div id="players_list">
+						</div>
+					</div>
+				</div>
+				<div id="play_hand">
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
