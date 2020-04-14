@@ -1,9 +1,11 @@
-#include "Enfer.hpp"
-#include <algorithm>
 #include <catch.hpp>
+#include "utilsStandardCards.hpp"
+
+#include "Enfer.hpp"
+
+#include <algorithm>
 #include <random>
 #include <sstream>
-#include "utilsStandardCards.hpp"
 
 #include "Exception.hpp"
 #include "StandardCards.hpp"
@@ -145,6 +147,25 @@ TEST_CASE("Enfer: Compute the number of cards for a round", "[cards][cards_enfer
 	CHECK(numberOfCardsForRound(8, 6) == 6);
 	CHECK(numberOfCardsForRound(8, 7) == 6);
 	CHECK_THROWS(numberOfCardsForRound(8,8));
+}
+TEST_CASE("Enfer: Get the title string of a round", "[cards][cards_enfer]")
+{
+	using Cards::Enfer::roundTitle;
+
+	CHECK(roundTitle(4, 12) == "12");
+	CHECK(roundTitle(4, 13) == "13*");
+	CHECK_THROWS_AS(roundTitle(4, 14), std::logic_error);
+	CHECK_THROWS_AS(roundTitle(4, 0), std::logic_error);
+
+	CHECK(roundTitle(5, 10) == "10");
+	CHECK(roundTitle(5, 11) == "10*");
+	CHECK_THROWS_AS(roundTitle(5, 12), std::logic_error);
+	CHECK_THROWS_AS(roundTitle(5, 0), std::logic_error);
+
+	CHECK(roundTitle(6, 8) == "8");
+	CHECK(roundTitle(6, 9) == "8*");
+	CHECK_THROWS_AS(roundTitle(6, 10), std::logic_error);
+	CHECK_THROWS_AS(roundTitle(6, 0), std::logic_error);
 }
 TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 {
@@ -703,6 +724,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.state() == State::SetTarget);
 		CHECK(game.handStartingPlayer() == 0);
 		CHECK(game.currentHand() == Hand{});
+		CHECK(game.scoredRound() == 0);
 
 		// Round 1
 		CHECK(game.strong() == Card{Kind::Heart, Value::Four});
@@ -728,6 +750,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 1) == Game::ScoreCase{0, 10, true});
 		CHECK(game.scoreFor(2, 1) == Game::ScoreCase{0, 10, true});
 		CHECK(game.scoreFor(3, 1) == Game::ScoreCase{1, 11, true});
+		CHECK(game.scoredRound() == 1);
 		REQUIRE_THROWS_AS(game.play(1, {Kind::Pike, Value::Ten}), Cards::ActionOutOfStep);
 		REQUIRE_THROWS_AS(game.setTarget(2, 0), Cards::ActionOutOfStep);
 		REQUIRE_NOTHROW(game.gotoNextRound());
@@ -750,6 +773,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		REQUIRE_NOTHROW(game.setTarget(3, 1));
 		REQUIRE_NOTHROW(game.setTarget(0, 0));
 		CHECK(game.state() == State::Play);
+		CHECK(game.scoredRound() == 1);
 
 		CHECK(game.handStartingPlayer() == 1);
 		REQUIRE_NOTHROW(game.play(1, {Kind::Pike, Value::Ten}));
@@ -768,7 +792,9 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		REQUIRE_NOTHROW(game.play(1, {Kind::Pike, Value::Jack}));
 		REQUIRE_NOTHROW(game.play(2, {Kind::Tile, Value::Two}));
 		REQUIRE_NOTHROW(game.play(3, {Kind::Clover, Value::Four}));
+		CHECK(game.scoredRound() == 1);
 		REQUIRE_NOTHROW(game.play(0, {Kind::Tile, Value::Ten}));
+		CHECK(game.scoredRound() == 2);
 
 		CHECK(game.scoreFor(0, 1) == Game::ScoreCase{0, 10, true});
 		CHECK(game.scoreFor(1, 1) == Game::ScoreCase{0, 10, true});
@@ -778,6 +804,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 2) == Game::ScoreCase{0, 10, false});
 		CHECK(game.scoreFor(2, 2) == Game::ScoreCase{0, 20, true});
 		CHECK(game.scoreFor(3, 2) == Game::ScoreCase{1, 22, true});
+		CHECK(game.scoredRound() == 2);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 3
@@ -816,6 +843,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 3) == Game::ScoreCase{1, 21, true});
 		CHECK(game.scoreFor(2, 3) == Game::ScoreCase{0, 20, false});
 		CHECK(game.scoreFor(3, 3) == Game::ScoreCase{1, 33, true});
+		CHECK(game.scoredRound() == 3);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 4
@@ -859,6 +887,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 4) == Game::ScoreCase{2, 33, true});
 		CHECK(game.scoreFor(2, 4) == Game::ScoreCase{1, 20, false});
 		CHECK(game.scoreFor(3, 4) == Game::ScoreCase{0, 43, true});
+		CHECK(game.scoredRound() == 4);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 5
@@ -916,6 +945,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 5) == Game::ScoreCase{2, 33, false});
 		CHECK(game.scoreFor(2, 5) == Game::ScoreCase{0, 30, true});
 		CHECK(game.scoreFor(3, 5) == Game::ScoreCase{1, 54, true});
+		CHECK(game.scoredRound() == 5);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 6
@@ -983,6 +1013,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 6) == Game::ScoreCase{0, 43, true});
 		CHECK(game.scoreFor(2, 6) == Game::ScoreCase{1, 41, true});
 		CHECK(game.scoreFor(3, 6) == Game::ScoreCase{3, 67, true});
+		CHECK(game.scoredRound() == 6);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 7
@@ -1057,6 +1088,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 7) == Game::ScoreCase{1, 43, false});
 		CHECK(game.scoreFor(2, 7) == Game::ScoreCase{1, 52, true});
 		CHECK(game.scoreFor(3, 7) == Game::ScoreCase{3, 80, true});
+		CHECK(game.scoredRound() == 7);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 8
@@ -1136,6 +1168,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 8) == Game::ScoreCase{1, 43, false});
 		CHECK(game.scoreFor(2, 8) == Game::ScoreCase{3, 52, false});
 		CHECK(game.scoreFor(3, 8) == Game::ScoreCase{2, 92, true});
+		CHECK(game.scoredRound() == 8);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 9
@@ -1223,6 +1256,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 9) == Game::ScoreCase{2, 55, true});
 		CHECK(game.scoreFor(2, 9) == Game::ScoreCase{1, 63, true});
 		CHECK(game.scoreFor(3, 9) == Game::ScoreCase{4, 92, false});
+		CHECK(game.scoredRound() == 9);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 10
@@ -1317,6 +1351,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 10) == Game::ScoreCase{1, 66, true});
 		CHECK(game.scoreFor(2, 10) == Game::ScoreCase{3, 63, false});
 		CHECK(game.scoreFor(3, 10) == Game::ScoreCase{1, 103, true});
+		CHECK(game.scoredRound() == 10);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 11
@@ -1418,6 +1453,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 11) == Game::ScoreCase{3, 79, true});
 		CHECK(game.scoreFor(2, 11) == Game::ScoreCase{1, 63, false});
 		CHECK(game.scoreFor(3, 11) == Game::ScoreCase{0, 113, true});
+		CHECK(game.scoredRound() == 11);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 12
@@ -1525,6 +1561,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 12) == Game::ScoreCase{3, 92, true});
 		CHECK(game.scoreFor(2, 12) == Game::ScoreCase{1, 74, true});
 		CHECK(game.scoreFor(3, 12) == Game::ScoreCase{4, 113, false});
+		CHECK(game.scoredRound() == 12);
 		REQUIRE_NOTHROW(game.gotoNextRound());
 
 		// Round 13
@@ -1641,6 +1678,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.scoreFor(1, 13) == Game::ScoreCase{3, 105, true});
 		CHECK(game.scoreFor(2, 13) == Game::ScoreCase{1, 85, true});
 		CHECK(game.scoreFor(3, 13) == Game::ScoreCase{3, 113, false});
+		CHECK(game.scoredRound() == 13);
 
 		CHECK(game.state() == State::Finished);
 		CHECK(game.currentRound() == 13);

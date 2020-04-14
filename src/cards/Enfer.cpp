@@ -2,6 +2,7 @@
 #include "Exception.hpp"
 #include "StandardCards.hpp"
 #include <algorithm>
+#include <sstream>
 #include <stdexcept>
 
 namespace
@@ -62,6 +63,16 @@ Cards::Enfer::Round::Round(Hand shuffledDeck, unsigned short playersCount, unsig
 		strong_ = shuffledDeck.back();
 		shuffledDeck.pop_back();
 	}
+}
+Cards::Enfer::Round::Round(std::vector<Hand> hands, std::vector<PlayerStatus> status, std::optional<Card> strong, Hand played, unsigned short handStartingPlayer) :
+	hands_{std::move(hands)},
+	status_{std::move(status)},
+	strong_{std::move(strong)},
+	currentHand_{std::move(played)},
+	handStartingPlayer_{handStartingPlayer},
+	currentPlayer_{static_cast<unsigned short>(hands_.size()), handStartingPlayer_}
+{
+	handStartingPlayer_ += played.size();
 }
 Cards::Enfer::State Cards::Enfer::Round::state() const
 {
@@ -201,6 +212,13 @@ Cards::Enfer::Game::Game(unsigned short numberOfPlayers, std::seed_seq& randomSe
 	currentRoundNumber_{1},
 	currentRound_{createShuffledDeck(randomEngine_), numberOfPlayers_, 0, currentRoundNumber_}
 {}
+Cards::Enfer::Game::Game(unsigned short numberOfPlayers, std::vector<RoundScore> scores, Round currentRound, unsigned short currentRoundNumber, std::seed_seq& randomSeed) :
+	randomEngine_{randomSeed},
+	scores_{std::move(scores)},
+	numberOfPlayers_{numberOfPlayers},
+	currentRoundNumber_{currentRoundNumber},
+	currentRound_{std::move(currentRound)}
+{}
 unsigned short Cards::Enfer::Game::roundNbCards() const
 {
 	return numberOfCardsForRound(numberOfPlayers_, currentRoundNumber_);
@@ -219,6 +237,10 @@ const Cards::Enfer::Game::ScoreCase& Cards::Enfer::Game::scoreFor(unsigned short
 		throw std::logic_error("Invalid player for Cards::Enfer::Game::scoreFor");
 
 	return scores_[roundNumber-1][player];
+}
+unsigned short Cards::Enfer::Game::scoredRound() const
+{
+	return scores_.size();
 }
 const Cards::Enfer::Round::PlayerStatus& Cards::Enfer::Game::roundState(unsigned short player) const
 {
@@ -261,7 +283,7 @@ const std::optional<Cards::Enfer::Card> Cards::Enfer::Game::strong() const
 const Cards::Enfer::Hand& Cards::Enfer::Game::playerHand(unsigned short player) const
 {
 	if(player >= numberOfPlayers_)
-		throw std::logic_error("Invalid player for Cards::Enfer::Game::roundState");
+		throw std::logic_error("Invalid player for Cards::Enfer::Game::playerHand");
 	
 	return currentRound_.hands()[player];
 }
@@ -376,4 +398,14 @@ unsigned short Cards::Enfer::numberOfCardsForRound(unsigned short nbPlayers, uns
 	if(roundNumber * nbPlayers > Standard::FullDeckSize)
 		return Standard::FullDeckSize / nbPlayers;
 	return roundNumber;
+}
+std::string Cards::Enfer::roundTitle(unsigned short nbPlayers, unsigned roundNumber)
+{
+	auto nbCards = numberOfCardsForRound(nbPlayers, roundNumber);
+
+	std::ostringstream out;
+	out << nbCards;
+	if(roundNumber * nbPlayers >= Standard::FullDeckSize)
+		out << '*';
+	return std::move(out).str();
 }

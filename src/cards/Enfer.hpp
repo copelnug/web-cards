@@ -55,6 +55,8 @@ namespace Cards
 			PlayerIter currentPlayer_;
 		public:
 			Round(Hand shuffledDeck, unsigned short playersCount, unsigned short startingPlayer, unsigned short roundNumber);
+			// For tests and maybe restore
+			Round(std::vector<Hand> hands, std::vector<PlayerStatus> status, std::optional<Card> strong, Hand played, unsigned short handStartingPlayer);
 			
 			State state() const;
 			unsigned short handStartingPlayer() const;
@@ -92,6 +94,8 @@ namespace Cards
 
 		public:
 			Game(unsigned short numberOfPlayers, std::seed_seq& randomSeed);
+			// For test or maybe for load
+			Game(unsigned short numberOfPlayers, std::vector<RoundScore> scores, Round currentRound, unsigned short currentRoundNumber, std::seed_seq& randomSeed);
 
 			unsigned short numberOfPlayers() const { return numberOfPlayers_; }
 			unsigned short currentRound() const { return currentRoundNumber_; }
@@ -100,6 +104,7 @@ namespace Cards
 
 			// Game state
 			const ScoreCase& scoreFor(unsigned short player, unsigned short roundNumber) const;
+			unsigned short scoredRound() const;
 			const Round::PlayerStatus& roundState(unsigned short player) const;
 			State state() const;
 
@@ -123,7 +128,7 @@ namespace Cards
 		bool stronger(const Card& newcard, const Card& toBeat, const std::optional<Card>& stronger);
 		unsigned short numberOfRounds(unsigned short nbPlayers);
 		unsigned short numberOfCardsForRound(unsigned short nbPlayers, unsigned short roundNumber);
-		// TODO Extract playable cards from hand.
+		std::string roundTitle(unsigned short nbPlayers, unsigned roundNumber);
 	}
 }
 
