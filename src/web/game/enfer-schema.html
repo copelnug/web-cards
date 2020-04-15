@@ -110,6 +110,7 @@
 				input.value = msg.min;
 				input.setAttribute("min", msg.min);
 				input.setAttribute("max", msg.max);
+				inputNumberChange(input);
 
 				document.getElementById('play_event_target').classList.remove(HiddenClass);	
 			}
@@ -327,6 +328,30 @@
 				document.getElementById('view_play').classList.toggle(HiddenClass);
 				document.getElementById('view_score').classList.toggle(HiddenClass);
 			}
+			function inputNumberIncrement(src, increment) {
+				var target = src.parentNode.getElementsByTagName('input')[0];
+				var orig_val = Number(target.value);
+				var val = orig_val;
+
+				if(increment) {
+					var max = Number(target.getAttribute('max'));
+					if(val < max)
+						val += 1;
+				}
+				else {
+					var min = Number(target.getAttribute('min'));
+					if(val > min)
+						val -= 1;
+				}
+				if(val != orig_val) {
+					target.value = val;
+					inputNumberChange(target);
+				}
+			}
+			function inputNumberChange(src) {
+				var display = src.parentNode.getElementsByTagName('span')[0];
+				display.innerText = src.value;
+			}
 		</script>
 		<style>
 			body {
@@ -479,6 +504,25 @@
 				margin-top: 20px;
 				display: inline-block;
 			}
+			.input_number {
+				border: 1px solid black;
+				border-radius: 5px;
+				background-color: white;
+				display: flex;
+				flex-direction: row;
+				align-items: stretch;
+			}
+			.input_number>button {
+				margin: 0px;
+				min-width: 30px;
+				font-weight: bold;
+			}
+			.input_number>span {
+				margin-left: 5px;
+				margin-right: 5px;
+				margin-top: 0px;
+				margin-bottom: 0px;
+			}
 			.hidden {
 				display: none;
 			}
@@ -523,7 +567,12 @@
 							<div class="event_error hidden"></div>
 							<label id="play_event_target_question" for="askNumber"></label>
 							<br/>
-							<input id="play_event_target_input" type="number" />
+							<div class="input_number">
+								<input id="play_event_target_input" type="number" class="hidden" onchange="inputNumberChange(this)"/>
+								<span></span>
+								<button onclick="inputNumberIncrement(this, false)">-</button>
+								<button onclick="inputNumberIncrement(this, true)">+</button>
+							</div>
 							<br/>
 							<button onclick="acceptTarget()">Ok</button>
 						</div>
