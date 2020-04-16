@@ -40,7 +40,7 @@ public:
 	static std::string serializeHostStart();
 	static std::string serializeAskUsername(const std::string& current = "");
 	static std::string serializeGameState(const std::vector<std::string>& usernames, const Cards::Enfer::Game& game, unsigned short player);
-	static std::string serializeAskTarget(unsigned short maxCards);
+	static std::string serializeAskTarget(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus);
 	static std::string serializeAskChooseCard();
 	static std::string serializeAskNextRound();
 

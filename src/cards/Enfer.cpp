@@ -249,6 +249,10 @@ const Cards::Enfer::Round::PlayerStatus& Cards::Enfer::Game::roundState(unsigned
 	
 	return currentRound_.status()[player];
 }
+const std::vector<Cards::Enfer::Round::PlayerStatus>& Cards::Enfer::Game::roundState() const
+{
+	return currentRound_.status();
+}
 Cards::Enfer::State Cards::Enfer::Game::state() const
 {
 	auto s = currentRound_.state();

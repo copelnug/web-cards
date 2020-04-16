@@ -106,6 +106,7 @@ namespace Cards
 			const ScoreCase& scoreFor(unsigned short player, unsigned short roundNumber) const;
 			unsigned short scoredRound() const;
 			const Round::PlayerStatus& roundState(unsigned short player) const;
+			const std::vector<Round::PlayerStatus>& roundState() const;
 			State state() const;
 
 			// Current hand

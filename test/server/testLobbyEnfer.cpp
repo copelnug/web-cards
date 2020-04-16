@@ -815,23 +815,200 @@ TEST_CASE("Serialize a enfer game state", "[LobbyEnfer][LobbyEnfer_serialize]")
 }
 TEST_CASE("Serialize a enfer game message to ask for target", "[LobbyEnfer][LobbyEnfer_serialize]")
 {
-	// TODO Find a json library that support integer.
-	CHECK_THAT(LobbyEnfer::serializeAskTarget(4), StrEqualIgnoreSpaces{
-		R"_({)_"
-		R"_(	"type": "ASK_INTEGER",)_"
-		R"_(	"msg":	"Combien de mains ferez vous?",)_"
-		R"_(	"min": "0",)_"
-		R"_(	"max": "4")_"
-		R"_(})_"
-	});
-	CHECK_THAT(LobbyEnfer::serializeAskTarget(6), StrEqualIgnoreSpaces{
-		R"_({)_"
-		R"_(	"type": "ASK_INTEGER",)_"
-		R"_(	"msg":	"Combien de mains ferez vous?",)_"
-		R"_(	"min": "0",)_"
-		R"_(	"max": "6")_"
-		R"_(})_"
-	});
+	using PlayerStatus = Cards::Enfer::Round::PlayerStatus;
+
+	std::vector<PlayerStatus> status;
+	status.push_back(PlayerStatus{0});
+	status.push_back(PlayerStatus{0});
+	status.push_back(PlayerStatus{});
+
+	SECTION("1 cards")
+	{
+		SECTION("1 player left")
+		{
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(1, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"La main est toujours disponible et il ne reste aucun autre joueur. Pensez-vous la faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "1")_"
+				R"_(})_"
+			});
+
+			status[0].target = 1;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(1, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"La main a déjà été revendiquée et il ne reste aucun autre joueur. Pensez-vous la faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "1")_"
+				R"_(})_"
+			});
+
+			status[1].target = 1;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(1, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"La main a déjà été revendiquée par 2 joueurs et il ne reste aucun autre joueur. Pensez-vous la faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "1")_"
+				R"_(})_"
+			});
+		}
+		SECTION("Many player left")
+		{
+			// Add fourth player
+			status.push_back(PlayerStatus{});
+
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(1, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"La main est toujours disponible et vous êtes 2 joueurs restant. Pensez-vous la faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "1")_"
+				R"_(})_"
+			});
+
+			status[0].target = 1;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(1, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"La main a déjà été revendiquée et vous êtes 2 joueurs restant. Pensez-vous la faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "1")_"
+				R"_(})_"
+			});
+
+			status[1].target = 1;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(1, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"La main a déjà été revendiquée par 2 joueurs et vous êtes 2 joueurs restant. Pensez-vous la faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "1")_"
+				R"_(})_"
+			});
+		}
+
+	}
+	SECTION("Many cards")
+	{
+		SECTION("1 player left")
+		{
+			// Nothing taken
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(4, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"Il reste 4 mains sur 4 et il ne reste aucun autre joueur. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "4")_"
+				R"_(})_"
+			});
+
+			// 2 on 4
+			status[0].target = 2;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(4, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"Il reste 2 mains sur 4 et il ne reste aucun autre joueur. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "4")_"
+				R"_(})_"
+			});
+
+			// One left
+			status[1].target = 1;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(4, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"Il reste une main sur 4 et il ne reste aucun autre joueur. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "4")_"
+				R"_(})_"
+			});
+
+			// None left
+			status[1].target = 2;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(4, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"Les 4 mains ont déjà été revendiquées et il ne reste aucun autre joueur. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "4")_"
+				R"_(})_"
+			});
+
+			// Too many
+			status[1].target = 3;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(4, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"5 mains sur 4 ont été revendiquées et il ne reste aucun autre joueur. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "4")_"
+				R"_(})_"
+			});
+		}
+		SECTION("Many player left")
+		{
+			// Add fourth player
+			status.push_back(PlayerStatus{});
+
+			// Nothing taken
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(6, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"Il reste 6 mains sur 6 pour 2 joueurs. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "6")_"
+				R"_(})_"
+			});
+
+			// 3 on 6
+			status[0].target = 3;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(6, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"Il reste 3 mains sur 6 pour 2 joueurs. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "6")_"
+				R"_(})_"
+			});
+
+			// One left
+			status[1].target = 2;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(6, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"Il reste une main sur 6 pour 2 joueurs. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "6")_"
+				R"_(})_"
+			});
+
+			// None left
+			status[1].target = 3;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(6, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"Les 6 mains ont déjà été revendiquées alors que vous êtes 2 joueurs restant. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "6")_"
+				R"_(})_"
+			});
+
+			// Too many
+			status[1].target = 4;
+			CHECK_THAT(LobbyEnfer::serializeAskTarget(6, status), StrEqualIgnoreSpaces{
+				R"_({)_"
+				R"_(	"type": "ASK_INTEGER",)_"
+				R"_(	"msg":	"7 mains sur 6 ont été revendiquées alors que vous êtes 2 joueurs restant. Combien pensez-vous en faire?",)_"
+				R"_(	"min": "0",)_"
+				R"_(	"max": "6")_"
+				R"_(})_"
+			});
+		}
+	}
 }
 TEST_CASE("Serialize a enfer game message to ask the user to play a card", "[LobbyEnfer][LobbyEnfer_serialize]")
 {
@@ -960,7 +1137,7 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 
 		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingTarget(Players[2]));
 		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingTarget(Players[2]));
-		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskTarget(3));
+		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskTarget(3, game.roundState()));
 		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingTarget(Players[2]));
 	}
 	SECTION("Play in progress")

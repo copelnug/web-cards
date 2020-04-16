@@ -721,6 +721,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.roundState(1) == Round::PlayerStatus{});
 		CHECK(game.roundState(2) == Round::PlayerStatus{});
 		CHECK(game.roundState(3) == Round::PlayerStatus{});
+		CHECK(game.roundState() == std::vector<Round::PlayerStatus>{game.roundState(0), game.roundState(1), game.roundState(2), game.roundState(3)});
 		CHECK(game.state() == State::SetTarget);
 		CHECK(game.handStartingPlayer() == 0);
 		CHECK(game.currentHand() == Hand{});
@@ -740,6 +741,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.roundState(1) == Round::PlayerStatus{0});
 		CHECK(game.roundState(2) == Round::PlayerStatus{0});
 		CHECK(game.roundState(3) == Round::PlayerStatus{1});
+		CHECK(game.roundState() == std::vector<Round::PlayerStatus>{game.roundState(0), game.roundState(1), game.roundState(2), game.roundState(3)});
 		CHECK(game.state() == State::Play);
 		REQUIRE_NOTHROW(game.play(0, {Kind::Pike, Value::Five}));
 		REQUIRE_NOTHROW(game.play(1, {Kind::Tile, Value::Four}));
@@ -787,6 +789,7 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.roundState(1) == Round::PlayerStatus{0, 1});
 		CHECK(game.roundState(2) == Round::PlayerStatus{0});
 		CHECK(game.roundState(3) == Round::PlayerStatus{1});
+		CHECK(game.roundState() == std::vector<Round::PlayerStatus>{game.roundState(0), game.roundState(1), game.roundState(2), game.roundState(3)});
 
 		CHECK(game.handStartingPlayer() == 1);
 		REQUIRE_NOTHROW(game.play(1, {Kind::Pike, Value::Jack}));

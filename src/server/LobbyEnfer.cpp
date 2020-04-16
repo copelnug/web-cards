@@ -23,6 +23,13 @@ namespace
 		// TODO
 		return msg;
 	}
+	template <typename ...T>
+	std::string TRAD(T&&... val)
+	{
+		std::ostringstream out;
+		(out <<  ... << val);
+		return std::move(out).str();
+	}
 	pt::ptree buildScoreNode(const Cards::Enfer::Game::ScoreCase& score)
 	{
 		// TODO Indicate success/failure?
@@ -500,11 +507,62 @@ std::string LobbyEnfer::serializeGameState(const std::vector<std::string>& usern
 	pt::write_json(out, msg);
 	return out.str();
 }
-std::string LobbyEnfer::serializeAskTarget(unsigned short maxCards)
+std::string LobbyEnfer::serializeAskTarget(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus)
 {
+	unsigned short nbPlayerLeft = playersStatus.size();
+	unsigned short nbTaken = 0;
+
+	for(auto& status : playersStatus)
+	{
+		if(status.target)
+		{
+			--nbPlayerLeft;
+			nbTaken += *status.target;
+		}
+	}
+
+	std::string textMsg;
+	if(nbTaken < maxCards)
+	{
+		if(maxCards == 1)
+			textMsg += TRAD("La main est toujours disponible");
+		else if(maxCards == nbTaken + 1)
+			textMsg += TRAD("Il reste une main sur ", maxCards);
+		else
+			textMsg += TRAD("Il reste ", (maxCards - nbTaken), " mains sur ", maxCards);
+	}
+	else if(nbTaken == maxCards)
+	{
+		if(maxCards == 1)
+			textMsg += TRAD("La main a déjà été revendiquée");
+		else
+			textMsg += TRAD("Les ", maxCards, " mains ont déjà été revendiquées");
+	}
+	else
+	{
+		if(maxCards == 1)
+			textMsg += TRAD("La main a déjà été revendiquée par ", nbTaken, " joueurs");
+		else
+			textMsg += TRAD(nbTaken, " mains sur ", maxCards, " ont été revendiquées");
+	}
+
+	if(nbPlayerLeft == 1)
+		textMsg += TRAD(" et il ne reste aucun autre joueur.");
+	else if(maxCards == 1)
+		textMsg += TRAD(" et vous êtes ", nbPlayerLeft, " joueurs restant.");
+	else if(nbTaken >= maxCards)
+		textMsg += TRAD(" alors que vous êtes ", nbPlayerLeft, " joueurs restant.");
+	else
+		textMsg += TRAD(" pour ", nbPlayerLeft, " joueurs.");
+
+	if(maxCards == 1)
+		textMsg += TRAD(" Pensez-vous la faire?");
+	else
+		textMsg += TRAD(" Combien pensez-vous en faire?");
+	
 	pt::ptree msg;
 	msg.put(MSG_ENTRY_TYPE, "ASK_INTEGER");
-	msg.put("msg", TRAD("Combien de mains ferez vous?"));
+	msg.put("msg", std::move(textMsg));
 	msg.put("min", 0);
 	msg.put("max", maxCards);
 
@@ -547,7 +605,7 @@ std::optional<std::string> LobbyEnfer::serializeCurrentEvent(const std::vector<s
 	{
 		case State::SetTarget:
 			if(player == game->currentPlayer())
-				return serializeAskTarget(game->roundNbCards());
+				return serializeAskTarget(game->roundNbCards(), game->roundState());
 			else
 				return serializeWaitingTarget(usernames.at(game->currentPlayer()));
 		case State::Play:
