@@ -20,6 +20,8 @@ class LobbyEnfer : public Lobby
 	std::mt19937_64 randomEngine_;
 	std::mutex mut_;
 
+	unsigned short implGetCreatorIndex() const;
+
 	void implSendTo(const std::string& session, std::string message, boost::asio::yield_context yield);
 	void implSendToAll(std::string message, boost::asio::yield_context yield);
 	void implSendStateToAll(boost::asio::yield_context yield);
@@ -41,6 +43,13 @@ public:
 	static std::string serializeAskTarget(unsigned short maxCards);
 	static std::string serializeAskChooseCard();
 	static std::string serializeAskNextRound();
+
+	static std::string serializeWaitingStart(const std::string& username);
+	static std::string serializeWaitingTarget(const std::string& username);
+	static std::string serializeWaitingChoose(const std::string& username);
+	static std::string serializeWaitingNext(const std::string& username);
+
+	static std::optional<std::string> serializeCurrentEvent(const std::vector<std::string>& usernames, const std::optional<Cards::Enfer::Game>& game, unsigned short player, unsigned short creatorIndex);
 	
 	// Error message
 	static std::string serializeIllegalChoice();

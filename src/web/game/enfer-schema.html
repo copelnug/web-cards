@@ -79,6 +79,7 @@
 				document.getElementById('play_event_start').classList.add(HiddenClass);
 				document.getElementById('play_event_choose').classList.add(HiddenClass);
 				document.getElementById('play_event_choose_confirm').classList.add(HiddenClass);
+				document.getElementById('play_event_status').classList.add(HiddenClass);
 
 				var list = document.getElementsByClassName("event_error");
 				for(var i = 0; i < list.length; ++i) {
@@ -206,6 +207,14 @@
 					tableNode.appendChild(row);
 				});	
 			}
+			function eventStatus(msg) {
+				hideAllEvents();
+
+				var label = document.getElementById("play_event_status_msg");
+				label.innerText = msg.msg;
+
+				document.getElementById('play_event_status').classList.remove(HiddenClass);
+			}
 			function eventError(msg) {
 				var list = document.getElementsByClassName("event_error");
 
@@ -222,6 +231,9 @@
 				}
 				else if(msg.type === "PLAYERS") {
 					eventPlayers(msg);
+				}
+				else if(msg.type === 'STATUS') {
+					eventStatus(msg);
 				}
 				else if(msg.type === "INPUT_INVALID") {
 					// Ask again
@@ -458,6 +470,20 @@
 				text-align: center;
 				width: 100%;
 				font-size: xx-large;
+				padding: 20px;
+			}
+			.play_event_notify {
+				border: 1px solid black;
+				border-radius: 20px;
+				background-color:navajowhite;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				text-align: center;
+				width: 100%;
+				font-size: xx-large;
+				padding: 20px;
 			}
 			.event_error {
 				color:darkred;
@@ -597,6 +623,9 @@
 							<br/>
 							<button onclick="acceptNext()">Ok</button>
 						</div>
+						<div id="play_event_status" class="play_event_notify hidden">
+							<span id="play_event_status_msg"></span>
+					</div>
 					</div>
 					<div id="play_right_bar">
 						<p>Joueurs</p>

@@ -23,21 +23,6 @@ namespace
 		// TODO
 		return msg;
 	}
-	std::optional<std::string> createMessageForNextAction(const Cards::Enfer::Game& game)
-	{
-		switch(game.state())
-		{
-			case State::SetTarget:
-				return LobbyEnfer::serializeAskTarget(game.roundNbCards());
-			case State::Play:
-				return LobbyEnfer::serializeAskChooseCard();
-			case State::GotoNext:
-				return LobbyEnfer::serializeAskNextRound();
-			case State::Finished:
-				break;
-		}
-		return {};
-	}
 	pt::ptree buildScoreNode(const Cards::Enfer::Game::ScoreCase& score)
 	{
 		// TODO Indicate success/failure?
@@ -49,6 +34,20 @@ namespace
 		node.put_value(std::move(out).str());
 		return node;
 	}
+	std::string serializeStatusHelper(const std::string& msg)
+	{
+		pt::ptree root;
+		root.put(LobbyEnfer::MSG_ENTRY_TYPE, "STATUS");
+		root.put("msg", msg);
+
+		std::ostringstream out;
+		pt::write_json(out, root);
+		return out.str();
+	}
+}
+unsigned short LobbyEnfer::implGetCreatorIndex() const
+{
+	return std::find(players_.begin(), players_.end(), creator_) - players_.begin();
 }
 void LobbyEnfer::implSendTo(const std::string& session, std::string message, boost::asio::yield_context yield)
 {
@@ -88,16 +87,15 @@ void LobbyEnfer::implSendStateToAll(boost::asio::yield_context yield)
 }
 void LobbyEnfer::implSendNextAction(boost::asio::yield_context yield)
 {
-	if(game_)
+	const auto Usernames = server().translateUsers(players_);
+
+	unsigned short creatorIndex = implGetCreatorIndex();
+
+	for(unsigned short i = 0; i < Usernames.size(); ++i)
 	{
-		auto msg = createMessageForNextAction(*game_);
+		auto msg = serializeCurrentEvent(Usernames, game_, i, creatorIndex);
 		if(msg)
-		{
-			if(game_->state() == State::GotoNext)
-				implSendTo(creator_, *std::move(msg), yield);
-			else
-				implSendTo(players_[game_->currentPlayer()], *std::move(msg), yield);
-		}
+			implSendTo(players_[i], *std::move(msg), yield);
 	}
 }
 LobbyEnfer::LobbyEnfer(Server* server, std::string creatorSessionId) :
@@ -140,36 +138,32 @@ void LobbyEnfer::join(const boost::shared_ptr<WebsocketSession>& connection, boo
 		connections_.emplace(connection->session(), connection);
 		connection->send(boost::make_shared<std::string>(serializeGameState(Usernames, *game_, playerIndex)), yield);
 		
-		if(playerIndex == game_->currentPlayer())
-		{
-			auto msg = createMessageForNextAction(*game_);
-			if(msg)
-			{
-				connection->send(boost::make_shared<std::string>(*std::move(msg)), yield);
-			}
-		}
+		auto msg = serializeCurrentEvent(Usernames, game_, playerIndex, implGetCreatorIndex());
+		if(msg)
+			connection->send(boost::make_shared<std::string>(*std::move(msg)), yield);
 		return;
 	}
 	else
 	{
 		connections_.emplace(connection->session(), connection);
 
+		auto it = std::find(players_.begin(), players_.end(), connection->session());
+
 		// New player
-		if(std::find(players_.begin(), players_.end(), connection->session()) == players_.end())
+		if(it == players_.end())
 		{
 			players_.push_back(connection->session());
 			implSendToAll(serializePlayerList(server().translateUsers(players_)), yield);
+
+			it = std::find(players_.begin(), players_.end(), connection->session());
 		}
 
-		if(connection->session() == creator_)
+		unsigned short playerIndex = it - players_.begin();
+		const auto Usernames = server().translateUsers(players_);
+		auto msg = serializeCurrentEvent(Usernames, game_, playerIndex, implGetCreatorIndex());
+		if(msg)
 		{
-			connection->send(boost::make_shared<const std::string>(serializeHostStart()), yield);
-		}
-
-		auto user = server().getUser(connection->session());
-		if(user.username.empty())
-		{
-			connection->send(boost::make_shared<const std::string>(serializeAskUsername()), yield);
+			connection->send(boost::make_shared<std::string>(*std::move(msg)), yield);
 		}
 	}
 
@@ -290,6 +284,13 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 			if(!game_)
 			{
 				implSendToAll(serializePlayerList(server().translateUsers(players_)), yield);
+			}
+
+			const auto Usernames = server().translateUsers(players_);
+			auto msg = serializeCurrentEvent(Usernames, game_, index, implGetCreatorIndex());
+			if(msg)
+			{
+				implSendTo(connection->session(), *std::move(msg), yield);
 			}
 		}
 		else
@@ -530,6 +531,40 @@ std::string LobbyEnfer::serializeAskNextRound()
 	pt::write_json(out, msg);
 	return out.str();
 }
+std::optional<std::string> LobbyEnfer::serializeCurrentEvent(const std::vector<std::string>& usernames, const std::optional<Cards::Enfer::Game>& game, unsigned short player, unsigned short creatorIndex)
+{
+	if(!game)
+	{
+		if(player == creatorIndex)
+			return serializeHostStart();
+		else if(usernames.at(player).empty())
+			return serializeAskUsername();
+		else
+			return serializeWaitingStart(usernames.at(creatorIndex));
+	}
+
+	switch(game->state())
+	{
+		case State::SetTarget:
+			if(player == game->currentPlayer())
+				return serializeAskTarget(game->roundNbCards());
+			else
+				return serializeWaitingTarget(usernames.at(game->currentPlayer()));
+		case State::Play:
+			if(player == game->currentPlayer())
+				return serializeAskChooseCard();
+			else
+				return serializeWaitingChoose(usernames.at(game->currentPlayer()));
+		case State::GotoNext:
+			if(player == creatorIndex)
+				return serializeAskNextRound();
+			else
+				return serializeWaitingNext(usernames.at(creatorIndex));
+		case State::Finished:
+			break;
+	}
+	return {};
+}
 std::string LobbyEnfer::serializeIllegalChoice()
 {
 	pt::ptree msg;
@@ -559,6 +594,36 @@ std::string LobbyEnfer::serializeNotPlayerTurn()
 	std::ostringstream out;
 	pt::write_json(out, msg);
 	return out.str();
+}
+std::string LobbyEnfer::serializeWaitingStart(const std::string& username)
+{
+	// TODO Use std::format
+	std::ostringstream out;
+	out << TRAD("En attente du début de la partie déclaré par ") << username;
+	return serializeStatusHelper(std::move(out).str());
+}
+std::string LobbyEnfer::serializeWaitingTarget(const std::string& username)
+{
+	// TODO Use std::format
+	std::ostringstream out;
+	out << TRAD("En attente du nombre de mains ciblées par ") << username;
+
+	return serializeStatusHelper(std::move(out).str());
+}
+std::string LobbyEnfer::serializeWaitingChoose(const std::string& username)
+{
+	// TODO Use std::format
+	std::ostringstream out;
+	out << TRAD("En attente de la carte jouée par ") << username;
+
+	return serializeStatusHelper(std::move(out).str());
+}
+std::string LobbyEnfer::serializeWaitingNext(const std::string& username)
+{
+	// TODO Use std::format
+	std::ostringstream out;
+	out << TRAD("En attente du début de la prochaine manche déclaré par ") << username;
+	return serializeStatusHelper(std::move(out).str());
 }
 std::string toJsonString(const Cards::Enfer::Round::PlayerStatus& status)
 {
