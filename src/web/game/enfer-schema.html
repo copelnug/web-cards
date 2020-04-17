@@ -40,8 +40,9 @@
 
 				if(card.kind) {
 					cardDiv.classList.add(card.kind.toLowerCase());
-					cardDiv.append(ValueMap.get(card.value));
 					cardDiv.append(KindMap.get(card.kind));
+					cardDiv.appendChild(document.createElement('br'));
+					cardDiv.append(ValueMap.get(card.value));
 				}
 				else {
 					cardDiv.classList.add('back');
@@ -428,7 +429,7 @@
 			#view_play>div {
 				margin: 0px;
 				width: 100%;
-				min-height: 100%;
+				min-height: 100vh;
 				display: flex;
 				align-items: stretch;
 				text-align: center;
@@ -470,7 +471,6 @@
 			}
 			#play_event {
 				margin: 0 auto;
-				float:unset;
 				width: 50%;
 				display: block;
 				border-radius: 20px;
@@ -488,7 +488,7 @@
 				align-items: center;
 				text-align: center;
 				width: 100%;
-				font-size: xx-large;
+				font-size: 2rem;
 				padding: 20px;
 			}
 			.play_event_notify {
@@ -501,7 +501,7 @@
 				align-items: center;
 				text-align: center;
 				width: 100%;
-				font-size: xx-large;
+				font-size: 2rem;
 				padding: 20px;
 			}
 			.event_error {
@@ -513,7 +513,6 @@
 				flex-direction: row;
 				text-align: center;
 				width: 100%;
-				min-height: 20%;
 				flex-grow: 0;
 			}
 			.card {
@@ -522,11 +521,11 @@
 				display: inline-block;
 				border: 1px solid black;
 				border-radius: 5px;
-				height: 12vw;
-				width: 10vw;
+				min-height: 2.75em;
+				min-width: 2em;
 				vertical-align: middle;
-				text-align: left;
-				font-size: xxx-large;
+				text-align: center;
+				font-size: 3rem;
 				font-weight: bold;
 				background-size: cover;
 				background-repeat: no-repeat;
