@@ -81,7 +81,8 @@ Server::Sender::Sender(boost::asio::ip::tcp::socket& socket, boost::system::erro
 	yield_{yield},
 	close_{close}
 {}
-Server::Server()
+Server::Server() :
+	fileRepository_{"files.lst"}
 {
 	std::random_device r;
 	std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
@@ -120,10 +121,14 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 
 	if(request.method() == boost::beast::http::verb::get)
 	{
-		std::optional<std::string> file;
-		auto lobby = getLobby(request.target());
-		if(lobby)
-			file = lobby->getHtmlFile(session);
+		std::optional<std::string> file = fileRepository_.get(request.target().to_string());
+
+		if(!file)
+		{
+			auto lobby = getLobby(request.target());
+			if(lobby)
+				file = lobby->getHtmlFile(session);
+		}
 		
 		if(file)
 		{

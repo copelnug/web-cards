@@ -3,6 +3,7 @@ dep_thread = dependency('threads')
 dep_boost_beast = dependency('boost', modules: ['coroutine', 'system'])
 
 serverlib = library('server',
+	'FileRepository.cpp',
 	'GlobalLobby.cpp',
 	'Lobby.cpp',
 	'LobbyEnfer.cpp',

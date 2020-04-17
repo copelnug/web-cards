@@ -13,6 +13,7 @@
 #include <mutex>
 #include <random>
 
+#include "FileRepository.hpp"
 #include "UserRepository.hpp"
 
 // TODO forward declare as much as possible of boost
@@ -51,6 +52,7 @@ public:
 private:
 	// TODO Timeout on session and lobbies
 	UserRepository usersRepository_;
+	FileRepository fileRepository_;
 	std::map<SessionId, User> users_;
 	std::map<Endpoint, std::shared_ptr<Lobby>> lobbies_;
 	std::mt19937_64 random_;
