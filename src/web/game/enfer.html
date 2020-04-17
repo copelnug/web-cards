@@ -150,6 +150,7 @@
 				});
 			}
 			function eventUpdateState(state) {
+				document.getElementById('play_right_bar_players').classList.add(HiddenClass);
 
 				// Strong card
 				var strongNode = document.getElementById('play_strong');
@@ -475,14 +476,15 @@
 				align-items: stretch;
 			}
 			#play_left_bar {
-				min-width: 10vw;
+				min-width: 10%;
 				flex-grow: 0;
 			}
 			#play_right_bar {
+				min-width: 10%;
 				text-align: right;
 				flex-grow: 0
 			}
-			#play_right_bar>p {
+			#play_right_bar_players>p {
 				font-weight: bold;
 			}
 			#play_event {
@@ -668,8 +670,9 @@
 						</div>
 					</div>
 					<div id="play_right_bar">
-						<p>Joueurs</p>
-						<div id="players_list">
+						<div id="play_right_bar_players">
+							<p>Joueurs</p>
+							<div id="players_list"></div>
 						</div>
 					</div>
 				</div>
