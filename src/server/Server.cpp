@@ -74,6 +74,17 @@ namespace
 			return {};
 		return result;
 	}
+	std::string getFileFormat(const std::filesystem::path& path)
+	{
+		auto ext = path.extension();
+		if(ext == ".html")
+			return "text/html; charset=utf-8";
+		if(ext == ".svg")
+			return "image/svg+xml";
+		if(ext == ".png")
+			return "image/png";
+		return "text; charset=utf-8";
+	}
 }
 Server::Sender::Sender(boost::asio::ip::tcp::socket& socket, boost::system::error_code& ec, bool& close, boost::asio::yield_context yield) :
 	socket_{socket},
@@ -121,7 +132,7 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 
 	if(request.method() == boost::beast::http::verb::get)
 	{
-		std::optional<std::string> file = fileRepository_.get(request.target().to_string());
+		std::optional<std::filesystem::path> file = fileRepository_.get(request.target().to_string());
 
 		if(!file)
 		{
@@ -145,7 +156,7 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 				std::make_tuple(boost::beast::http::status::ok, request.version())
 			};
 			res.set(boost::beast::http::field::server, "0.1");
-			res.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
+			res.set(boost::beast::http::field::content_type, getFileFormat(*file));
 			setSession(res, inputSession, session);
 			res.content_length(size);
 			res.keep_alive(request.keep_alive());

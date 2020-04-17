@@ -197,6 +197,20 @@
 						utilAddCardTo(rootNode, '', {});
 					}
 
+					node = document.createElement('div');
+					if(item.status) {
+						if(item.status === 'success') {
+							node.innerHTML = '<img src="/images/icon-status-success.svg" class="icon-status"/>';
+						}
+						else if(item.status === 'failure') {
+							node.innerHTML = '<img src="/images/icon-status-failure.svg" class="icon-status"/>';
+						}
+						else if(item.status === 'current') {
+							node.innerHTML = '<img src="/images/icon-status-current.svg" class="icon-status"/>';
+						}
+					}
+					rootNode.appendChild(node);
+
 					currentNode.appendChild(rootNode);
 				});
 
@@ -440,8 +454,11 @@
 			}
 			#play_current {
 				width: 100%;
-				display: block;
+				display: flex;
 				flex-grow: 0;
+				flex-direction: row;
+				align-items: flex-start;
+				justify-content: center;
 			}
 			#play_current>div {
 				display: inline-block;
@@ -542,7 +559,7 @@
 				color: black;
 			}
 			.back {
-				background-image: url('../images/more-leaves-on-green.png');
+				background-image: url('/images/more-leaves-on-green.png');
 				background-repeat: repeat;
 			}
 			.buttonRow>button {
@@ -568,6 +585,9 @@
 				margin-right: 5px;
 				margin-top: 0px;
 				margin-bottom: 0px;
+			}
+			.icon-status {
+				width:30%;
 			}
 			.hidden {
 				display: none;

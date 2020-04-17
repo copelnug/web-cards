@@ -404,6 +404,26 @@ std::string LobbyEnfer::serializeGameState(const std::vector<std::string>& usern
 			node.put("card.kind", toJsonString(game.currentHand()[i].kind));
 			node.put("card.value", toJsonString(game.currentHand()[i].value));
 		}
+
+		switch(game.state())
+		{
+			case State::SetTarget:
+			case State::Play:
+				if(game.currentPlayer() == p)
+					node.put("status", "current");
+				break;
+			case State::GotoNext:
+			case State::Finished:
+			{
+				auto result = game.roundState(p);
+				if(result.target && *result.target == result.obtained)
+					node.put("status", "success");
+				else
+					node.put("status", "failure");
+				break;
+			}
+		}
+		
 		array.push_back(std::make_pair("", node));
 	}
 	msg.add_child("play", std::move(array));
