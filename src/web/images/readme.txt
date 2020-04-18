@@ -11,3 +11,5 @@ icon-status-failure.svg:
 icon-status-current.svg:
 	Come from https://feathericons.com/
 	AS: check.svg, x-circle.svg and chevron-up.svg
+icon-strong-none.svg
+	Same as icon-status-failure.svg

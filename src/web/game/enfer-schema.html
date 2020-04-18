@@ -143,16 +143,14 @@
 			function eventUpdateState(state) {
 				// Strong card
 				var strongNode = document.getElementById('play_strong');
+				strongNode.classList.remove(HiddenClass);
+				var parentNode = document.getElementById('play_strong_card');
+				parentNode.innerHTML = ''
 				if(state.strong) {
-					strongNode.classList.remove(HiddenClass);
-					
-					var parentNode = document.getElementById('play_strong_card');
-					parentNode.innerHTML = ''
-
 					utilAddCardTo(parentNode, '', state.strong);
 				}
 				else {
-					strongNode.classList.add(HiddenClass);
+					parentNode.innerHTML = '<img src="/images/icon-strong-none.svg" class="strong-none"/>'
 				}
 
 				// Hand
@@ -619,6 +617,9 @@
 			}
 			.icon-status-container .icon-status {
 				width:30%;
+			}
+			.strong-none {
+				width: 50%;
 			}
 			.hidden {
 				display: none;
