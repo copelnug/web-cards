@@ -44,17 +44,19 @@ public:
 	static std::string serializeAskChooseCard();
 	static std::string serializeAskNextRound();
 
-	static std::string serializeWaitingStart(const std::string& username);
-	static std::string serializeWaitingTarget(const std::string& username);
-	static std::string serializeWaitingChoose(const std::string& username);
-	static std::string serializeWaitingNext(const std::string& username);
-
 	static std::optional<std::string> serializeCurrentEvent(const std::vector<std::string>& usernames, const std::optional<Cards::Enfer::Game>& game, unsigned short player, unsigned short creatorIndex);
 	
 	// Error message
 	static std::string serializeIllegalChoice();
 	static std::string serializeActionOutOfStep();
 	static std::string serializeNotPlayerTurn();
+
+	// Status messages
+	static std::string serializeWaitingStart(const std::string& username);
+	static std::string serializeWaitingTarget(const std::string& username);
+	static std::string serializeWaitingChoose(const std::string& username);
+	static std::string serializeWaitingNext(const std::string& username);
+	static std::string serializeEndGame();
 };
 
 std::string toJsonString(const Cards::Enfer::Round::PlayerStatus& status);

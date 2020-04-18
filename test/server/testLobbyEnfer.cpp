@@ -1083,6 +1083,12 @@ TEST_CASE("Serialize a enfer game waiting message", "[LobbyEnfer][LobbyEnfer_ser
 			R"_({"type": "STATUS", "msg": "En attente du début de la prochaine manche déclaré par Unittest"})_"
 		});
 	}
+	SECTION("End game")
+	{
+		CHECK_THAT(LobbyEnfer::serializeEndGame(), StrEqualIgnoreSpaces{
+			R"_({"type": "STATUS", "msg": "La partie est terminée"})_"
+		});
+	}
 }
 TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 {
@@ -1107,6 +1113,7 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 	const auto serializeWaitingTarget = LobbyEnfer::serializeWaitingTarget;
 	const auto serializeWaitingChoose = LobbyEnfer::serializeWaitingChoose;
 	const auto serializeWaitingNext = LobbyEnfer::serializeWaitingNext;
+	const auto serializeEndGame = LobbyEnfer::serializeEndGame;
 
 	std::seed_seq seed{1, 2, 3, 4, 5, 6, 7, 8};
 	
@@ -1269,10 +1276,10 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 			seed
 		};
 
-		CHECK(serializeCurrentEvent(Players, game, 0, 0) == std::optional<std::string>{});
-		CHECK(serializeCurrentEvent(Players, game, 1, 0) == std::optional<std::string>{});
-		CHECK(serializeCurrentEvent(Players, game, 2, 0) == std::optional<std::string>{});
-		CHECK(serializeCurrentEvent(Players, game, 3, 0) == std::optional<std::string>{});
-		CHECK(serializeCurrentEvent(Players, game, 4, 0) == std::optional<std::string>{});
+		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeEndGame());
+		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeEndGame());
+		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeEndGame());
+		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeEndGame());
+		CHECK(serializeCurrentEvent(Players, game, 4, 0) == serializeEndGame());
 	}
 }

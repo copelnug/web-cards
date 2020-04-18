@@ -639,7 +639,7 @@ std::optional<std::string> LobbyEnfer::serializeCurrentEvent(const std::vector<s
 			else
 				return serializeWaitingNext(usernames.at(creatorIndex));
 		case State::Finished:
-			break;
+			return serializeEndGame();
 	}
 	return {};
 }
@@ -702,6 +702,10 @@ std::string LobbyEnfer::serializeWaitingNext(const std::string& username)
 	std::ostringstream out;
 	out << TRAD("En attente du début de la prochaine manche déclaré par ") << username;
 	return serializeStatusHelper(std::move(out).str());
+}
+std::string LobbyEnfer::serializeEndGame()
+{
+	return serializeStatusHelper("La partie est terminée");
 }
 std::string toJsonString(const Cards::Enfer::Round::PlayerStatus& status)
 {
