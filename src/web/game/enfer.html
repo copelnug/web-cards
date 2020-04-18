@@ -508,12 +508,12 @@
 				margin: 0px;
 				padding: 0px;
 				min-width: 100%;
-				min-height: 100vh;
 			}
 			#view_play>div {
 				margin: 0px;
 				width: 100%;
-				min-height: 100vh;
+				/* Minux 50px because on iPad it does not substract the menu bars height from the fullscreen (100vh). Thus, it would cut the bottom of the cards. */
+				min-height: calc(100vh - 50px);
 				display: flex;
 				align-items: stretch;
 				text-align: center;
