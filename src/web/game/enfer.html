@@ -392,7 +392,15 @@
 				send(msg);
 			}
 			function toggleView() {
-				document.getElementById('view_play').classList.toggle(HiddenClass);
+				var button = document.getElementById('viewButton');
+				var viewPlay = document.getElementById('view_play');
+				if(viewPlay.classList.contains(HiddenClass)) {
+					button.innerText = 'Pts';
+				}
+				else {
+					button.innerText = 'Jeu';
+				}
+				viewPlay.classList.toggle(HiddenClass);
 				document.getElementById('view_score').classList.toggle(HiddenClass);
 			}
 			function inputNumberIncrement(src, increment) {
