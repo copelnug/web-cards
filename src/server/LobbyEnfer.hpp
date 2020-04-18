@@ -41,7 +41,7 @@ public:
 	static std::string serializeAskUsername(const std::string& current = "");
 	static std::string serializeGameState(const std::vector<std::string>& usernames, const Cards::Enfer::Game& game, unsigned short player);
 	static std::string serializeAskTarget(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus);
-	static std::string serializeAskChooseCard();
+	static std::string serializeAskChooseCard(bool newHand);
 	static std::string serializeAskNextRound();
 
 	static std::optional<std::string> serializeCurrentEvent(const std::vector<std::string>& usernames, const std::optional<Cards::Enfer::Game>& game, unsigned short player, unsigned short creatorIndex);
@@ -55,7 +55,7 @@ public:
 	// Status messages
 	static std::string serializeWaitingStart(const std::string& username);
 	static std::string serializeWaitingTarget(const std::string& username);
-	static std::string serializeWaitingChoose(const std::string& username);
+	static std::string serializeWaitingChoose(const std::string& username, bool isFirstHand, bool newHand);
 	static std::string serializeWaitingNext(const std::string& username);
 	static std::string serializeEndGame();
 };

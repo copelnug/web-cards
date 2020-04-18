@@ -108,6 +108,17 @@ const std::optional<Cards::Enfer::Card>& Cards::Enfer::Round::strong() const
 {
 	return strong_;
 }
+bool Cards::Enfer::Round::isNewHandStarting() const
+{
+	return currentHand_.size() == nbPlayers() || currentHand_.empty();
+}
+bool Cards::Enfer::Round::isFirstHand() const
+{
+	for(auto& status : status_)
+		if(status.obtained > 0)
+			return false;
+	return true;
+}
 const Cards::Enfer::Hand& Cards::Enfer::Round::played() const
 {
 	return currentHand_;
@@ -135,7 +146,7 @@ void Cards::Enfer::Round::play(unsigned short player, Card card)
 		throw IllegalChoice{player};
 
 	// If we're not the first card (hand full or empty), check if we can play it
-	if(currentHand_.size() != nbPlayers() && !currentHand_.empty())
+	if(!isNewHandStarting())
 	{
 		if(!canPlay(hand, card, currentHand_.front()))
 			throw IllegalChoice{player};
@@ -283,6 +294,14 @@ const Cards::Enfer::Hand& Cards::Enfer::Game::currentHand() const
 const std::optional<Cards::Enfer::Card> Cards::Enfer::Game::strong() const
 {
 	return currentRound_.strong();
+}
+bool Cards::Enfer::Game::isNewHandStarting() const
+{
+	return currentRound_.isNewHandStarting();
+}
+bool Cards::Enfer::Game::isFirstHandInRound() const
+{
+	return currentRound_.isFirstHand();
 }
 const Cards::Enfer::Hand& Cards::Enfer::Game::playerHand(unsigned short player) const
 {

@@ -1026,8 +1026,11 @@ TEST_CASE("Serialize a enfer game message to ask for target", "[LobbyEnfer][Lobb
 }
 TEST_CASE("Serialize a enfer game message to ask the user to play a card", "[LobbyEnfer][LobbyEnfer_serialize]")
 {
-	CHECK_THAT(LobbyEnfer::serializeAskChooseCard(), StrEqualIgnoreSpaces{
-		R"_({"type": "PLAY_CARD"})_"
+	CHECK_THAT(LobbyEnfer::serializeAskChooseCard(true), StrEqualIgnoreSpaces{
+		R"_({"type": "PLAY_CARD", "msg": "Choisissez une carte pour commencez la main."})_"
+	});
+	CHECK_THAT(LobbyEnfer::serializeAskChooseCard(false), StrEqualIgnoreSpaces{
+		R"_({"type": "PLAY_CARD", "msg": "Choisissez une carte."})_"
 	});
 }
 TEST_CASE("Serialize a enfer game message to ask before starting next round", "[LobbyEnfer][LobbyEnfer_serialize]")
@@ -1073,7 +1076,16 @@ TEST_CASE("Serialize a enfer game waiting message", "[LobbyEnfer][LobbyEnfer_ser
 	}
 	SECTION("Waiting for card choice")
 	{
-		CHECK_THAT(LobbyEnfer::serializeWaitingChoose("Unittest"), StrEqualIgnoreSpaces{
+		CHECK_THAT(LobbyEnfer::serializeWaitingChoose("Unittest", true, true), StrEqualIgnoreSpaces{
+			R"_({"type": "STATUS", "msg": "En attente de la première carte de Unittest"})_"
+		});
+		CHECK_THAT(LobbyEnfer::serializeWaitingChoose("Unittest", false, true), StrEqualIgnoreSpaces{
+			R"_({"type": "STATUS", "msg": "Main gagnée par Unittest. En attente de la nouvelle main."})_"
+		});
+		CHECK_THAT(LobbyEnfer::serializeWaitingChoose("Unittest", true, false), StrEqualIgnoreSpaces{
+			R"_({"type": "STATUS", "msg": "En attente de la carte jouée par Unittest"})_"
+		});
+		CHECK_THAT(LobbyEnfer::serializeWaitingChoose("Unittest", false, false), StrEqualIgnoreSpaces{
 			R"_({"type": "STATUS", "msg": "En attente de la carte jouée par Unittest"})_"
 		});
 	}
@@ -1161,6 +1173,76 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskTarget(3, game.roundState()));
 		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingTarget(Players[2]));
 	}
+	SECTION("Ready to play")
+	{
+		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		Round round{
+			{
+				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
+				Hand{ {Kind::Clover, Value::Three}, {Kind::Pike, Value::Ace}, {Kind::Pike, Value::Seven} },
+				Hand{ {Kind::Clover, Value::Four}, {Kind::Pike, Value::Eight}, {Kind::Tile, Value::Ace} },
+				Hand{ {Kind::Heart, Value::Ace}, {Kind::Pike, Value::Nine}, {Kind::Clover, Value::Six} },
+			},
+			{
+				Round::PlayerStatus{0},
+				Round::PlayerStatus{0},
+				Round::PlayerStatus{1},
+				Round::PlayerStatus{2}
+			},
+			{ Card{ Kind::Heart, Value::Two} },
+			Hand{},
+			2
+		};
+
+		Game game{4, {
+				{ ScoreCase{0, 10, true}, ScoreCase{0, 10, true}, ScoreCase{0, 10, true}, ScoreCase{0, 10, true}},
+				{ ScoreCase{1, 21, true}, ScoreCase{0, 20, true}, ScoreCase{0, 20, true}, ScoreCase{1, 10, false}},
+			},
+			std::move(round),
+			3,
+			seed
+		};
+
+		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2], true, true));
+		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2], true, true));
+		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard(true));
+		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2], true, true));
+	}
+	SECTION("Start second hand")
+	{
+		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		Round round{
+			{
+				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
+				Hand{ {Kind::Clover, Value::Three}, {Kind::Pike, Value::Ace}, {Kind::Pike, Value::Seven} },
+				Hand{ {Kind::Clover, Value::Four}, {Kind::Pike, Value::Eight}, {Kind::Tile, Value::Ace} },
+				Hand{ {Kind::Heart, Value::Ace}, {Kind::Pike, Value::Nine}, {Kind::Clover, Value::Six} },
+			},
+			{
+				Round::PlayerStatus{0},
+				Round::PlayerStatus{0},
+				Round::PlayerStatus{1},
+				Round::PlayerStatus{2, 1}
+			},
+			{ Card{ Kind::Heart, Value::Two} },
+			Hand{},
+			2
+		};
+
+		Game game{4, {
+				{ ScoreCase{0, 10, true}, ScoreCase{0, 10, true}, ScoreCase{0, 10, true}, ScoreCase{0, 10, true}},
+				{ ScoreCase{1, 21, true}, ScoreCase{0, 20, true}, ScoreCase{0, 20, true}, ScoreCase{1, 10, false}},
+			},
+			std::move(round),
+			3,
+			seed
+		};
+
+		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2], false, true));
+		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2], false, true));
+		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard(true));
+		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2], false, true));
+	}
 	SECTION("Play in progress")
 	{
 		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
@@ -1191,10 +1273,10 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 			seed
 		};
 
-		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2]));
-		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2]));
-		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard());
-		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2]));
+		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2], false, false));
+		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2], false, false));
+		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard(false));
+		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2], false, false));
 	}
 	SECTION("Round finished")
 	{

@@ -284,6 +284,8 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 				TargetNone, Round::PlayerStatus{1}, TargetNone, TargetNone,
 			});
 			CHECK(round.played() == played);
+			CHECK(round.isNewHandStarting());
+			CHECK(round.isFirstHand());
 
 			// Player 2 play
 			REQUIRE_NOTHROW(round.play(2, hand2[0]));
@@ -297,6 +299,8 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 				TargetNone, Round::PlayerStatus{1}, TargetNone, TargetNone,
 			});
 			CHECK(round.played() == played);
+			CHECK_FALSE(round.isNewHandStarting());
+			CHECK(round.isFirstHand());
 
 			// Player 3 play
 			REQUIRE_NOTHROW(round.play(3, hand3[0]));
@@ -310,6 +314,8 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 				TargetNone, Round::PlayerStatus{1}, TargetNone, TargetNone,
 			});
 			CHECK(round.played() == played);
+			CHECK_FALSE(round.isNewHandStarting());
+			CHECK(round.isFirstHand());
 
 			// Player 0 play
 			REQUIRE_NOTHROW(round.play(0, hand0[0]));
@@ -323,6 +329,8 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 				TargetNone, Round::PlayerStatus{1}, TargetNone, TargetNone,
 			});
 			CHECK(round.played() == played);
+			CHECK_FALSE(round.isNewHandStarting());
+			CHECK(round.isFirstHand());
 
 			// Lets try corrupting the data again
 			CHECK_THROWS_AS(round.setTarget(1, 0), Cards::ActionOutOfStep);
@@ -340,6 +348,7 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 				TargetNone, Round::PlayerStatus{1}, Round::PlayerStatus{0,1}, TargetNone,
 			});
 			CHECK(round.played() == played);
+			CHECK_FALSE(round.isFirstHand());
 		}
 	}
 	SECTION("#6 for 5")
@@ -385,6 +394,7 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 		CHECK(round.status() == std::vector<Round::PlayerStatus>{
 			{1}, {2}, {1}, {0}, {2},
 		});
+		CHECK(round.isNewHandStarting());
 
 		// First hand: Just stronger value
 		played = { 
@@ -395,10 +405,15 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 			{Kind::Clover, Value::King}, // #2
 		};
 		REQUIRE_NOTHROW(round.play(3, played[0]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(4, played[1]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(0, played[2]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(1, played[3]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(2, played[4]));
+		CHECK(round.isNewHandStarting());
 		CHECK(round.state() == State::Play);
 		CHECK(round.handStartingPlayer() == 3);
 		CHECK(round.currentPlayer() == 2);
@@ -423,12 +438,22 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 			{Kind::Heart, Value::Ace},   // #1
 		};
 		REQUIRE_NOTHROW(round.play(2, played[0]));
+		CHECK_FALSE(round.isNewHandStarting());
+		CHECK_FALSE(round.isFirstHand());
 		CHECK(round.handStartingPlayer() == 2);   // Was reset
 		CHECK(round.played() == Hand{played[0]}); // Was reset
 		REQUIRE_NOTHROW(round.play(3, played[1]));
+		CHECK_FALSE(round.isNewHandStarting());
+		CHECK_FALSE(round.isFirstHand());
 		REQUIRE_NOTHROW(round.play(4, played[2]));
+		CHECK_FALSE(round.isNewHandStarting());
+		CHECK_FALSE(round.isFirstHand());
 		REQUIRE_NOTHROW(round.play(0, played[3]));
+		CHECK_FALSE(round.isNewHandStarting());
+		CHECK_FALSE(round.isFirstHand());
 		REQUIRE_NOTHROW(round.play(1, played[4]));
+		CHECK(round.isNewHandStarting());
+		CHECK_FALSE(round.isFirstHand());
 		CHECK(round.state() == State::Play);
 		CHECK(round.handStartingPlayer() == 2);
 		CHECK(round.currentPlayer() == 1);
@@ -453,10 +478,16 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 			{Kind::Tile, Value::Ten},     // #0
 		};
 		REQUIRE_NOTHROW(round.play(1, played[0]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(2, played[1]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(3, played[2]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(4, played[3]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(0, played[4]));
+		CHECK(round.isNewHandStarting());
+		CHECK_FALSE(round.isFirstHand());
 		CHECK(round.state() == State::Play);
 		CHECK(round.handStartingPlayer() == 1);
 		CHECK(round.currentPlayer() == 4);
@@ -481,10 +512,16 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 			{Kind::Tile, Value::Six},   // #3
 		};
 		REQUIRE_NOTHROW(round.play(4, played[0]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(0, played[1]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(1, played[2]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(2, played[3]));
+		CHECK_FALSE(round.isNewHandStarting());
 		REQUIRE_NOTHROW(round.play(3, played[4]));
+		CHECK(round.isNewHandStarting());
+		CHECK_FALSE(round.isFirstHand());
 		CHECK(round.state() == State::Play);
 		CHECK(round.handStartingPlayer() == 4);
 		CHECK(round.currentPlayer() == 0);
@@ -737,6 +774,8 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		REQUIRE_NOTHROW(game.setTarget(1, 0));
 		REQUIRE_NOTHROW(game.setTarget(2, 0));
 		REQUIRE_NOTHROW(game.setTarget(3, 1));
+		CHECK(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		CHECK(game.roundState(0) == Round::PlayerStatus{0});
 		CHECK(game.roundState(1) == Round::PlayerStatus{0});
 		CHECK(game.roundState(2) == Round::PlayerStatus{0});
@@ -744,9 +783,16 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK(game.roundState() == std::vector<Round::PlayerStatus>{game.roundState(0), game.roundState(1), game.roundState(2), game.roundState(3)});
 		CHECK(game.state() == State::Play);
 		REQUIRE_NOTHROW(game.play(0, {Kind::Pike, Value::Five}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Tile, Value::Four}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Clover, Value::Three}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Heart, Value::Ten}));
+		CHECK_FALSE(game.isFirstHandInRound());
 		CHECK(game.state() == State::GotoNext);
 		CHECK(game.scoreFor(0, 1) == Game::ScoreCase{0, 10, true});
 		CHECK(game.scoreFor(1, 1) == Game::ScoreCase{0, 10, true});
@@ -774,17 +820,27 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		REQUIRE_NOTHROW(game.setTarget(2, 0));
 		REQUIRE_NOTHROW(game.setTarget(3, 1));
 		REQUIRE_NOTHROW(game.setTarget(0, 0));
+		CHECK(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		CHECK(game.state() == State::Play);
 		CHECK(game.scoredRound() == 1);
 
 		CHECK(game.handStartingPlayer() == 1);
 		REQUIRE_NOTHROW(game.play(1, {Kind::Pike, Value::Ten}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		REQUIRE_THROWS_AS(game.play(2, {Kind::Tile, Value::Two}), Cards::IllegalChoice); // Must play the same kind if possible.
 		REQUIRE_THROWS_AS(game.play(3, {Kind::Heart, Value::Queen}), Cards::NotPlayerTurn);
 		REQUIRE_THROWS_AS(game.setTarget(2, 0), Cards::ActionOutOfStep);
 		REQUIRE_NOTHROW(game.play(2, {Kind::Pike, Value::Nine}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Heart, Value::Queen}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Tile, Value::Jack}));
+		CHECK_FALSE(game.isFirstHandInRound());
+		CHECK(game.isNewHandStarting());
 		CHECK(game.roundState(0) == Round::PlayerStatus{0});
 		CHECK(game.roundState(1) == Round::PlayerStatus{0, 1});
 		CHECK(game.roundState(2) == Round::PlayerStatus{0});
@@ -793,10 +849,17 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 
 		CHECK(game.handStartingPlayer() == 1);
 		REQUIRE_NOTHROW(game.play(1, {Kind::Pike, Value::Jack}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Tile, Value::Two}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Clover, Value::Four}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK_FALSE(game.isNewHandStarting());
 		CHECK(game.scoredRound() == 1);
 		REQUIRE_NOTHROW(game.play(0, {Kind::Tile, Value::Ten}));
+		CHECK_FALSE(game.isFirstHandInRound());
 		CHECK(game.scoredRound() == 2);
 
 		CHECK(game.scoreFor(0, 1) == Game::ScoreCase{0, 10, true});
@@ -823,23 +886,35 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		REQUIRE_NOTHROW(game.setTarget(3, 1));
 		REQUIRE_NOTHROW(game.setTarget(0, 0));
 		REQUIRE_NOTHROW(game.setTarget(1, 1));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.state() == State::Play);
 
 		REQUIRE_NOTHROW(game.play(2, {Kind::Heart, Value::Four}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Tile, Value::Five}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Heart, Value::Jack}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Tile, Value::Three}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 2);
 
 		REQUIRE_NOTHROW(game.play(3, {Kind::Pike, Value::Five}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Pike, Value::Two}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Pike, Value::Three}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Pike, Value::Eight}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 3);
 
 		REQUIRE_NOTHROW(game.play(2, {Kind::Clover, Value::Ten}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Clover, Value::Ace}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Pike, Value::King}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Tile, Value::Queen}));
 
 		CHECK(game.scoreFor(0, 3) == Game::ScoreCase{0, 30, true});
@@ -1599,83 +1674,145 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		REQUIRE_NOTHROW(game.setTarget(1, 3));
 		REQUIRE_NOTHROW(game.setTarget(2, 1));
 		REQUIRE_NOTHROW(game.setTarget(3, 3));
+		CHECK(game.isNewHandStarting());
+		CHECK(game.isNewHandStarting());
 
 		REQUIRE_NOTHROW(game.play(0, {Kind::Pike, Value::Ace})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Pike, Value::Six}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Pike, Value::Jack}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Pike, Value::Nine}));
+		CHECK(game.isNewHandStarting());
+		CHECK_FALSE(game.isFirstHandInRound());
 		CHECK(game.handStartingPlayer() == 0);
 
 		REQUIRE_NOTHROW(game.play(0, {Kind::Heart, Value::Jack}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK_FALSE(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Heart, Value::Six}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK_FALSE(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Heart, Value::Ace})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK_FALSE(game.isFirstHandInRound());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Heart, Value::Eight}));
+		CHECK(game.isNewHandStarting());
+		CHECK_FALSE(game.isFirstHandInRound());
 		CHECK(game.handStartingPlayer() == 0);
 
 		REQUIRE_NOTHROW(game.play(2, {Kind::Tile, Value::Six}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Tile, Value::Eight}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Tile, Value::Ace})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Tile, Value::Ten}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 2);
 
 		REQUIRE_NOTHROW(game.play(0, {Kind::Heart, Value::Ten}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Heart, Value::King})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Heart, Value::Four}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Heart, Value::Seven}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 0);
 
 		REQUIRE_NOTHROW(game.play(1, {Kind::Tile, Value::Nine}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Tile, Value::Four}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Tile, Value::King})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Heart, Value::Nine}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 1);
 
 		REQUIRE_NOTHROW(game.play(3, {Kind::Pike, Value::Eight}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Pike, Value::King})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Pike, Value::Four}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Pike, Value::Ten}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 3);
 
 		REQUIRE_NOTHROW(game.play(0, {Kind::Heart, Value::Queen})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Heart, Value::Five}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Heart, Value::Three}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Clover, Value::Jack}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 0);
 
 		REQUIRE_NOTHROW(game.play(0, {Kind::Clover, Value::Seven}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Clover, Value::Ace})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Clover, Value::Queen}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Clover, Value::Four}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 0);
 
 		REQUIRE_NOTHROW(game.play(1, {Kind::Tile, Value::Queen})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Tile, Value::Jack}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Tile, Value::Seven}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Clover, Value::Ten}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 1);
 
 		REQUIRE_NOTHROW(game.play(1, {Kind::Clover, Value::Six}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Pike, Value::Seven}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(3, {Kind::Clover, Value::King})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Clover, Value::Nine}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 1);
 
 		REQUIRE_NOTHROW(game.play(3, {Kind::Pike, Value::Queen})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Clover, Value::Eight}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Pike, Value::Three}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Pike, Value::Five}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 3);
 
 		REQUIRE_NOTHROW(game.play(3, {Kind::Pike, Value::Two})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Clover, Value::Three}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Clover, Value::Five}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Tile, Value::Three}));
+		CHECK(game.isNewHandStarting());
 		CHECK(game.handStartingPlayer() == 3);
 
 		REQUIRE_NOTHROW(game.play(3, {Kind::Tile, Value::Five})); // Win
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(0, {Kind::Clover, Value::Two}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(1, {Kind::Tile, Value::Two}));
+		CHECK_FALSE(game.isNewHandStarting());
 		REQUIRE_NOTHROW(game.play(2, {Kind::Heart, Value::Two}));
+		CHECK_FALSE(game.isFirstHandInRound());
 
 		CHECK(game.scoreFor(0, 13) == Game::ScoreCase{4, 107, true});
 		CHECK(game.scoreFor(1, 13) == Game::ScoreCase{3, 105, true});
@@ -1689,6 +1826,5 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK_THROWS_AS(game.setTarget(0, 0), Cards::GameFinished);
 		CHECK_THROWS_AS(game.play(0, {Kind::Clover, Value::Two}), Cards::GameFinished);
 		CHECK_THROWS_AS(game.gotoNextRound(), Cards::GameFinished);
-
 	}
 }

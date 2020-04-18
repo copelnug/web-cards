@@ -441,7 +441,7 @@ std::string LobbyEnfer::serializeGameState(const std::vector<std::string>& usern
 		node.put("kind", toJsonString(card.kind));
 		node.put("value", toJsonString(card.value));
 
-		if(game.currentHand().empty() || game.currentHand().size() == game.numberOfPlayers() || Cards::Enfer::canPlay(hand, card, game.currentHand().front()))
+		if(game.isNewHandStarting() || Cards::Enfer::canPlay(hand, card, game.currentHand().front())) // If we're not starting a new hand. Their must be a card played so front() is safe.
 		{
 			node.put("playable", true);
 		}
@@ -466,7 +466,6 @@ std::string LobbyEnfer::serializeGameState(const std::vector<std::string>& usern
 	}
 	row.add_child("data", data);
 	array.push_back(std::make_pair("", row));
-
 
 	// Main score
 	for(unsigned short i = 1; i <= game.scoredRound(); ++i)
@@ -593,10 +592,14 @@ std::string LobbyEnfer::serializeAskTarget(unsigned short maxCards, const std::v
 	pt::write_json(out, msg);
 	return out.str();
 }
-std::string LobbyEnfer::serializeAskChooseCard()
+std::string LobbyEnfer::serializeAskChooseCard(bool newHand)
 {
 	pt::ptree msg;
 	msg.put(MSG_ENTRY_TYPE, "PLAY_CARD");
+	if(newHand)
+		msg.put("msg", "Choisissez une carte pour commencez la main.");
+	else
+		msg.put("msg", "Choisissez une carte.");
 
 	std::ostringstream out;
 	pt::write_json(out, msg);
@@ -633,9 +636,9 @@ std::optional<std::string> LobbyEnfer::serializeCurrentEvent(const std::vector<s
 				return serializeWaitingTarget(usernames.at(game->currentPlayer()));
 		case State::Play:
 			if(player == game->currentPlayer())
-				return serializeAskChooseCard();
+				return serializeAskChooseCard(game->isNewHandStarting());
 			else
-				return serializeWaitingChoose(usernames.at(game->currentPlayer()));
+				return serializeWaitingChoose(usernames.at(game->currentPlayer()), game->isFirstHandInRound(), game->isNewHandStarting());
 		case State::GotoNext:
 			if(player == creatorIndex)
 				return serializeAskNextRound();
@@ -717,11 +720,19 @@ std::string LobbyEnfer::serializeWaitingTarget(const std::string& username)
 
 	return serializeStatusHelper(std::move(out).str());
 }
-std::string LobbyEnfer::serializeWaitingChoose(const std::string& username)
+std::string LobbyEnfer::serializeWaitingChoose(const std::string& username, bool isFirstHand, bool newHand)
 {
 	// TODO Use std::format
 	std::ostringstream out;
-	out << TRAD("En attente de la carte jouée par ") << username;
+	if(newHand)
+	{
+		if(isFirstHand)
+			out << TRAD("En attente de la première carte de ", username);
+		else
+			out << TRAD("Main gagnée par ", username, ". En attente de la nouvelle main.");
+	}
+	else
+		out << TRAD("En attente de la carte jouée par ") << username;
 
 	return serializeStatusHelper(std::move(out).str());
 }

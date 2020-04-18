@@ -62,6 +62,8 @@ namespace Cards
 			unsigned short handStartingPlayer() const;
 			unsigned short currentPlayer() const;
 			unsigned short nbPlayers() const;
+			bool isNewHandStarting() const;
+			bool isFirstHand() const;
 
 			const std::vector<Hand>& hands() const;
 			const std::vector<PlayerStatus>& status() const;
@@ -113,6 +115,8 @@ namespace Cards
 			unsigned short handStartingPlayer() const;
 			const Hand& currentHand() const;
 			const std::optional<Card> strong() const;
+			bool isNewHandStarting() const;
+			bool isFirstHandInRound() const;
 
 			// Player info
 			const Hand& playerHand(unsigned short player) const;

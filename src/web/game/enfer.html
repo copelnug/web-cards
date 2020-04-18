@@ -126,9 +126,11 @@
 
 				document.getElementById('play_event_target').classList.remove(HiddenClass);	
 			}
-			function eventAskCard() {
+			function eventAskCard(msg) {
 				hideAllEvents();
 				utilDrawHand(true);
+
+				document.getElementById('play_event_choose_text').innerText = msg.msg;
 
 				document.getElementById('play_event_choose').classList.remove(HiddenClass);	
 			}
@@ -307,7 +309,7 @@
 						eventAskTarget(msg);
 					}
 					else if(msg.type === "PLAY_CARD") {
-						eventAskCard();
+						eventAskCard(msg);
 					}
 					else if(msg.type === "ASK_CONFIRM") {
 						eventAskNextRound(msg);
@@ -379,7 +381,7 @@
 				send(msg);
 			}
 			function refuseCard() {
-				eventAskCard()
+				eventAskCard(lastMsg)
 			}
 			function acceptNext() {
 				hideAllEvents();
@@ -692,7 +694,7 @@
 						</div>
 						<div id="play_event_choose" class="play_event_input hidden">
 							<div class="event_error hidden"></div>
-							<label>Choisissez une carte.</label>
+							<label id="play_event_choose_text"></label>
 						</div>
 						<div id="play_event_choose_confirm" class="play_event_input hidden">
 							<div class="event_error hidden"></div>
