@@ -159,15 +159,17 @@
 
 				// Hand
 				hand.clear();
-				state.hand.forEach( function (card, index) {
-					var cardId = 'hand_card_' + index;
-					hand.set(cardId, card);
-				});
+				if(state.hand)
+				{
+					state.hand.forEach( function (card, index) {
+						var cardId = 'hand_card_' + index;
+						hand.set(cardId, card);
+					});
+				}
 				utilDrawHand();
 
 				// Current play
-				var currentNode = document.getElementById('play_current');
-				currentNode.innerHTML = '';
+				var array = [];
 				state.play.forEach( function (item) {
 					var rootNode = document.createElement('div');
 					
@@ -187,20 +189,30 @@
 					}
 
 					node = document.createElement('div');
+					node.classList.add('icon-status-container')
+					
+					var container = document.createElement('div');
+					node.appendChild(container);
+					
 					if(item.status) {
 						if(item.status === 'success') {
-							node.innerHTML = '<img src="/images/icon-status-success.svg" class="icon-status"/>';
+							container.innerHTML = '<img src="/images/icon-status-success.svg" class="icon-status"/>';
 						}
 						else if(item.status === 'failure') {
-							node.innerHTML = '<img src="/images/icon-status-failure.svg" class="icon-status"/>';
+							container.innerHTML = '<img src="/images/icon-status-failure.svg" class="icon-status"/>';
 						}
 						else if(item.status === 'current') {
-							node.innerHTML = '<img src="/images/icon-status-current.svg" class="icon-status"/>';
+							container.innerHTML = '<img src="/images/icon-status-current.svg" class="icon-status"/>';
 						}
 					}
 					rootNode.appendChild(node);
 
-					currentNode.appendChild(rootNode);
+					array.push(rootNode);
+				});
+				var currentNode = document.getElementById('play_current');
+				currentNode.innerHTML = '';
+				array.forEach(function (item) {
+					currentNode.appendChild(item);
 				});
 
 				// Score
@@ -571,7 +583,24 @@
 				margin-top: 0px;
 				margin-bottom: 0px;
 			}
-			.icon-status {
+			.icon-status-container {
+				padding: 0px;
+				margin: 0px;
+				position: relative;
+				width: 100%;
+			}
+			.icon-status-container:before {
+				padding-top: 30%;
+				display: block;
+				content: "";
+			}
+			.icon-status-container>div {
+				position: absolute;
+				text-align: center;
+				width: 100%;
+				top: 0;
+			}
+			.icon-status-container .icon-status {
 				width:30%;
 			}
 			.hidden {
@@ -650,7 +679,7 @@
 						</div>
 						<div id="play_event_status" class="play_event_notify hidden">
 							<span id="play_event_status_msg"></span>
-					</div>
+						</div>
 					</div>
 					<div id="play_right_bar">
 						<div id="play_right_bar_players">
