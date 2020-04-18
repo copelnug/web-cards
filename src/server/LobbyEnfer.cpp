@@ -32,13 +32,15 @@ namespace
 	}
 	pt::ptree buildScoreNode(const Cards::Enfer::Game::ScoreCase& score)
 	{
-		// TODO Indicate success/failure?
 		pt::ptree node;
 
-		std::ostringstream out;
-		out << score.target << "-" << score.points;
-		
-		node.put_value(std::move(out).str());
+		node.put("points", score.points);
+		if(score.succeed)
+			node.put("status", "success");
+		else
+			node.put("status", "failure");
+		node.put("target", score.target);
+
 		return node;
 	}
 	std::string serializeStatusHelper(const std::string& msg)

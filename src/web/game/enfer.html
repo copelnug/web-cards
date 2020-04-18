@@ -236,7 +236,29 @@
 					
 					itemRow.data.forEach(function (item) {
 						var node = document.createElement(entryType);
-						node.innerText = item;
+
+						if(typeof item === 'string') {
+							node.innerText = item;
+						} else {
+							var t = document.createElement('span');
+							t.classList.add('left');
+							t.innerText = item.target;
+							node.appendChild(t);
+
+							t = document.createElement('img');
+							if(item.status === 'success') {
+								t.setAttribute('src', '/images/icon-status-success.svg');
+							} else {
+								t.setAttribute('src', '/images/icon-status-failure.svg');
+							}
+							t.classList.add('icon-status');
+							t.classList.add('left');
+							node.appendChild(t);
+
+							t = document.createElement('span');
+							t.innerText = item.points;
+							node.appendChild(t);
+						}
 						row.appendChild(node);
 					});
 
@@ -475,6 +497,12 @@
 			#view_score td, #view_score th {
 				border: 1px solid black;
 				text-align: center;
+			}
+			#view_score td .icon-status, #view_score th .icon-status {
+				width: 1rem;
+			}
+			#view_score td .left {
+				float: left;
 			}
 			#view_play {
 				margin: 0px;
