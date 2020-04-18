@@ -45,6 +45,7 @@ public:
 	static std::string serializeAskNextRound();
 
 	static std::optional<std::string> serializeCurrentEvent(const std::vector<std::string>& usernames, const std::optional<Cards::Enfer::Game>& game, unsigned short player, unsigned short creatorIndex);
+	static std::string serializeRoundInfos(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus);
 	
 	// Error message
 	static std::string serializeIllegalChoice();

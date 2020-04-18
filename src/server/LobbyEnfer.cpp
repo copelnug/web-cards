@@ -248,6 +248,7 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 
 			implSendStateToAll(yield);
 			implSendNextAction(yield);
+			implSendToAll(serializeRoundInfos(game_->roundNbCards(), game_->roundState()), yield);
 		}
 		else if(*type == "TARGET")
 		{
@@ -258,6 +259,7 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 
 			implSendStateToAll(yield);
 			implSendNextAction(yield);
+			implSendToAll(serializeRoundInfos(game_->roundNbCards(), game_->roundState()), yield);
 		}
 		else if(*type == "PLAY")
 		{
@@ -280,6 +282,7 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 
 			implSendStateToAll(yield);
 			implSendNextAction(yield);
+			implSendToAll(serializeRoundInfos(game_->roundNbCards(), game_->roundState()), yield);
 		}
 		else if(*type == "SET_USERNAME")
 		{
@@ -642,6 +645,32 @@ std::optional<std::string> LobbyEnfer::serializeCurrentEvent(const std::vector<s
 			return serializeEndGame();
 	}
 	return {};
+}
+std::string LobbyEnfer::serializeRoundInfos(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus)
+{
+	pt::ptree msg;
+	msg.put(MSG_ENTRY_TYPE, "ROUND_INFOS");
+
+	pt::ptree array;
+	pt::ptree line;
+
+	line.put_value(TRAD("Mains: ", maxCards));
+	array.push_back(std::make_pair("", line));
+
+	unsigned short taken = 0;
+	for(auto& status : playersStatus)
+		if(status.target)
+			taken += *status.target;
+
+	line = pt::ptree{};
+	line.put_value(TRAD("Prises: ", taken));
+	array.push_back(std::make_pair("", line));
+
+	msg.add_child("msg", std::move(array));
+
+	std::ostringstream out;
+	pt::write_json(out, msg);
+	return out.str();
 }
 std::string LobbyEnfer::serializeIllegalChoice()
 {

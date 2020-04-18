@@ -1283,3 +1283,35 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		CHECK(serializeCurrentEvent(Players, game, 4, 0) == serializeEndGame());
 	}
 }
+TEST_CASE("Serialize the round informations", "[LobbyEnfer][LobbyEnfer_serialize]")
+{
+	auto serializeRoundInfos = LobbyEnfer::serializeRoundInfos;
+	
+	CHECK_THAT(serializeRoundInfos(3, { {}, {}, {}}), StrEqualIgnoreSpaces{
+		R"_({)_"
+		R"_(	"type": "ROUND_INFOS",)_"
+		R"_(	"msg": [)_"
+		R"_(		"Mains: 3",)_"
+		R"_(		"Prises: 0")_"
+		R"_(	])_"
+		R"_(})_"
+	});
+	CHECK_THAT(serializeRoundInfos(4, { {}, {3}, {2}}), StrEqualIgnoreSpaces{
+		R"_({)_"
+		R"_(	"type": "ROUND_INFOS",)_"
+		R"_(	"msg": [)_"
+		R"_(		"Mains: 4",)_"
+		R"_(		"Prises: 5")_"
+		R"_(	])_"
+		R"_(})_"
+	});
+	CHECK_THAT(serializeRoundInfos(5, { {}, {1}, {}, {1}, {2}, {}}), StrEqualIgnoreSpaces{
+		R"_({)_"
+		R"_(	"type": "ROUND_INFOS",)_"
+		R"_(	"msg": [)_"
+		R"_(		"Mains: 5",)_"
+		R"_(		"Prises: 4")_"
+		R"_(	])_"
+		R"_(})_"
+	});
+}

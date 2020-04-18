@@ -141,8 +141,6 @@
 				});
 			}
 			function eventUpdateState(state) {
-				document.getElementById('play_right_bar_players').classList.add(HiddenClass);
-
 				// Strong card
 				var strongNode = document.getElementById('play_strong');
 				if(state.strong) {
@@ -235,6 +233,22 @@
 					tableNode.appendChild(row);
 				});	
 			}
+			function eventRoundInfos(msg) {
+				document.getElementById('play_right_bar_players').classList.add(HiddenClass);
+
+				var section = document.getElementById('play_round_infos');
+				section.innerHTML = "";
+				if(msg.msg)
+				{
+					msg.msg.forEach( function (text) {
+						var node = document.createElement('p');
+						node.innerText = text;
+						section.appendChild(node);
+					});
+				}
+
+				section.classList.remove(HiddenClass);
+			}
 			function eventStatus(msg) {
 				hideAllEvents();
 
@@ -262,6 +276,9 @@
 				}
 				else if(msg.type === 'STATUS') {
 					eventStatus(msg);
+				}
+				else if(msg.type === 'ROUND_INFOS') {
+					eventRoundInfos(msg);
 				}
 				else if(msg.type === "INPUT_INVALID") {
 					// Ask again
@@ -478,7 +495,7 @@
 			}
 			#play_right_bar {
 				min-width: 10%;
-				text-align: right;
+				text-align: left;
 				flex-grow: 0
 			}
 			#play_right_bar_players>p {
@@ -686,6 +703,7 @@
 							<p>Joueurs</p>
 							<div id="players_list"></div>
 						</div>
+						<div id="play_round_infos" class="hidden"></div>
 					</div>
 				</div>
 				<div id="play_hand">
@@ -772,7 +790,16 @@
 						}
 					]
 				};
-				eventNetworkUpdate(state1)
+				eventNetworkUpdate(state1);
+
+				var msgRoundInfos = {
+					'type': 'ROUND_INFOS',
+					'msg': [
+						'First: 1',
+						'Second: 2'
+					]
+				};
+				eventNetworkUpdate(msgRoundInfos);
 
 				var msgAskTarget = {
 					"type": "ASK_INTEGER",
