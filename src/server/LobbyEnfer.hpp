@@ -13,9 +13,19 @@
 
 class LobbyEnfer : public Lobby
 {
+public:
+	struct PlayerInfo
+	{
+		PlayerInfo(std::string sessionId, std::string username);
+		
+		std::string sessionId;
+		std::string username;
+	};
+private:
+
 	std::multimap<std::string, boost::weak_ptr<WebsocketSession>> connections_;
 	std::optional<Cards::Enfer::Game> game_;
-	std::vector<std::string> players_;
+	std::vector<PlayerInfo> players_;
 	std::string creator_;
 	std::mt19937_64 randomEngine_;
 	std::mutex mut_;
@@ -36,15 +46,15 @@ public:
 	virtual bool onMessage(const boost::shared_ptr<WebsocketSession>& connection, const boost::property_tree::ptree& message, boost::asio::yield_context yield) override;
 
 	// Messages
-	static std::string serializePlayerList(const std::vector<std::string>& usernames);
+	static std::string serializePlayerList(const std::vector<PlayerInfo>& players);
 	static std::string serializeHostStart();
 	static std::string serializeAskUsername(const std::string& current = "");
-	static std::string serializeGameState(const std::vector<std::string>& usernames, const Cards::Enfer::Game& game, unsigned short player);
+	static std::string serializeGameState(const std::vector<PlayerInfo>& players, const Cards::Enfer::Game& game, unsigned short player);
 	static std::string serializeAskTarget(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus);
 	static std::string serializeAskChooseCard(bool newHand);
 	static std::string serializeAskNextRound();
 
-	static std::optional<std::string> serializeCurrentEvent(const std::vector<std::string>& usernames, const std::optional<Cards::Enfer::Game>& game, unsigned short player, unsigned short creatorIndex);
+	static std::optional<std::string> serializeCurrentEvent(const std::vector<PlayerInfo>& players, const std::optional<Cards::Enfer::Game>& game, unsigned short player, unsigned short creatorIndex);
 	static std::string serializeRoundInfos(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus);
 	
 	// Error message

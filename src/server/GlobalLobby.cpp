@@ -19,7 +19,7 @@ std::optional<std::string> GlobalLobby::getHtmlFile(const std::string_view& sess
 {
 	auto user = server().getUser(session);
 
-	if(user.guest)
+	if(!user)
 		return "login.html";
 	return "index.html";
 }
@@ -27,7 +27,7 @@ void GlobalLobby::join(const boost::shared_ptr<WebsocketSession>& connection, bo
 {
 	auto user = server().getUser(connection->session());
 
-	if(user.guest)
+	if(!user)
 		connection->close();
 
 }
@@ -45,6 +45,8 @@ bool GlobalLobby::onMessage(const boost::shared_ptr<WebsocketSession>& connectio
 
 	if(*type == "START")
 	{
+		if(!user)
+			return false;
 		auto name = server().addLobby(std::make_shared<LobbyEnfer>(&server(), connection->session()));
 
 		pt::ptree msg;

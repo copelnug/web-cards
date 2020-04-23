@@ -42,12 +42,21 @@ namespace
 			return "match the JSON (ignoring formatting).";
 		}
 	};
+	std::vector<LobbyEnfer::PlayerInfo> player_list(const std::vector<std::string>& usernames)
+	{
+		std::vector<LobbyEnfer::PlayerInfo> result;
+		for(size_t i = 0; i < usernames.size(); ++i)
+		{
+			result.emplace_back(std::to_string(i), usernames[i]);
+		}
+		return result;
+	}
 }
 TEST_CASE("Serialize a enfer player list", "[LobbyEnfer][LobbyEnfer_serialize]")
 {
 	const auto serializePlayerList = LobbyEnfer::serializePlayerList;
 
-	CHECK_THAT(serializePlayerList({"Anna", "Bob", "Charlie", "Damian"}), StrEqualIgnoreSpaces{
+	CHECK_THAT(serializePlayerList(player_list({"Anna", "Bob", "Charlie", "Damian"})), StrEqualIgnoreSpaces{
 		R"_({)_"
 		R"_(	"type": "PLAYERS",)_"
 		R"_(	"players": [)_"
@@ -58,7 +67,7 @@ TEST_CASE("Serialize a enfer player list", "[LobbyEnfer][LobbyEnfer_serialize]")
 		R"_(	])_"
 		R"_(})_"
 	});
-	CHECK_THAT(serializePlayerList({"Eve", "Damian", "", "Bob", "Anna"}), StrEqualIgnoreSpaces{
+	CHECK_THAT(serializePlayerList(player_list({"Eve", "Damian", "", "Bob", "Anna"})), StrEqualIgnoreSpaces{
 		R"_({)_"
 		R"_(	"type": "PLAYERS",)_"
 		R"_(	"players": [)_"
@@ -103,7 +112,7 @@ TEST_CASE("Serialize a enfer game state", "[LobbyEnfer][LobbyEnfer_serialize]")
 	
 	SECTION("Basic round: Start")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian"});
 		Round round{
 			{
 				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
@@ -421,7 +430,7 @@ TEST_CASE("Serialize a enfer game state", "[LobbyEnfer][LobbyEnfer_serialize]")
 	}
 	SECTION("In progress")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian"});
 		Round round{
 			{
 				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
@@ -531,7 +540,7 @@ TEST_CASE("Serialize a enfer game state", "[LobbyEnfer][LobbyEnfer_serialize]")
 	}
 	SECTION("No score yet")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian"});
 		Round round{
 			{
 				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
@@ -608,7 +617,7 @@ TEST_CASE("Serialize a enfer game state", "[LobbyEnfer][LobbyEnfer_serialize]")
 	}
 	SECTION("Round finished")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian"});
 		Round round{
 			{
 				Hand{},
@@ -726,7 +735,7 @@ TEST_CASE("Serialize a enfer game state", "[LobbyEnfer][LobbyEnfer_serialize]")
 	}
 	SECTION("Game finished")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian", "Eve"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian", "Eve"});
 		Round round{
 			{
 				Hand{},
@@ -1268,17 +1277,17 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 	
 	SECTION("Not started")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "", "Damian"};
+		const auto Players = player_list({"Anna", "Bob", "", "Damian"});
 		std::optional<Cards::Enfer::Game> game;
 
-		CHECK(serializeCurrentEvent(Players, game, 0, 1) == serializeWaitingStart(Players[1]));
+		CHECK(serializeCurrentEvent(Players, game, 0, 1) == serializeWaitingStart(Players[1].username));
 		CHECK(serializeCurrentEvent(Players, game, 1, 1) == serializeHostStart());
-		CHECK(serializeCurrentEvent(Players, game, 2, 1) == serializeAskUsername(Players[2]));
-		CHECK(serializeCurrentEvent(Players, game, 3, 1) == serializeWaitingStart(Players[1]));
+		CHECK(serializeCurrentEvent(Players, game, 2, 1) == serializeAskUsername(Players[2].username));
+		CHECK(serializeCurrentEvent(Players, game, 3, 1) == serializeWaitingStart(Players[1].username));
 	}
 	SECTION("Set target")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian"});
 		Round round{
 			{
 				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
@@ -1305,14 +1314,14 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 			seed
 		};
 
-		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingTarget(Players[2]));
-		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingTarget(Players[2]));
+		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingTarget(Players[2].username));
+		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingTarget(Players[2].username));
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskTarget(3, game.roundState()));
-		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingTarget(Players[2]));
+		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingTarget(Players[2].username));
 	}
 	SECTION("Ready to play")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian"});
 		Round round{
 			{
 				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
@@ -1340,14 +1349,14 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 			seed
 		};
 
-		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2], true, true));
-		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2], true, true));
+		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2].username, true, true));
+		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2].username, true, true));
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard(true));
-		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2], true, true));
+		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2].username, true, true));
 	}
 	SECTION("Start second hand")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian"});
 		Round round{
 			{
 				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
@@ -1375,14 +1384,14 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 			seed
 		};
 
-		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2], false, true));
-		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2], false, true));
+		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2].username, false, true));
+		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2].username, false, true));
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard(true));
-		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2], false, true));
+		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2].username, false, true));
 	}
 	SECTION("Play in progress")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian"});
 		Round round{
 			{
 				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
@@ -1410,14 +1419,14 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 			seed
 		};
 
-		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2], false, false));
-		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2], false, false));
+		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeWaitingChoose(Players[2].username, false, false));
+		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2].username, false, false));
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard(false));
-		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2], false, false));
+		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2].username, false, false));
 	}
 	SECTION("Round finished")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian", "Eve"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian", "Eve"});
 		Round round{
 			{
 				Hand{},
@@ -1448,16 +1457,16 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		};
 
 		CHECK(serializeCurrentEvent(Players, game, 0, 0) == serializeAskNextRound());
-		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingNext(Players[0]));
-		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeWaitingNext(Players[0]));
-		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingNext(Players[0]));
-		CHECK(serializeCurrentEvent(Players, game, 4, 0) == serializeWaitingNext(Players[0]));
+		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingNext(Players[0].username));
+		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeWaitingNext(Players[0].username));
+		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingNext(Players[0].username));
+		CHECK(serializeCurrentEvent(Players, game, 4, 0) == serializeWaitingNext(Players[0].username));
 
-		CHECK(serializeCurrentEvent(Players, game, 0, 1) == serializeWaitingNext(Players[1]));
+		CHECK(serializeCurrentEvent(Players, game, 0, 1) == serializeWaitingNext(Players[1].username));
 	}
 	SECTION("Game finished")
 	{
-		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian", "Eve"};
+		const auto Players = player_list({"Anna", "Bob", "Charlie", "Damian", "Eve"});
 		Round round{
 			{
 				Hand{},

@@ -285,29 +285,17 @@ std::string Server::addLobby(std::shared_ptr<Lobby> lobby)
 	lobbies_.emplace(name, lobby);
 	return name;
 }
-void Server::setUsername(const std::string& session, std::string username)
-{
-	std::lock_guard<std::mutex> l{mut_};
-
-	users_[session].username = username;
-}
-Server::User Server::getUser(const std::string_view& sessionId)
+std::optional<Server::User> Server::getUser(const std::string_view& sessionId)
 {
 	return getUser(std::string{sessionId});
 }
-Server::User Server::getUser(const std::string& sessionId)
+std::optional<Server::User> Server::getUser(const std::string& sessionId)
 {
 	std::lock_guard<std::mutex> l{mut_};
-	return users_[sessionId];
-}
-std::vector<std::string> Server::translateUsers(const std::vector<std::string>& sessions)
-{
-	std::vector<std::string> users;
-	
-	std::lock_guard<std::mutex> l{mut_};
-	for(auto& session : sessions)
-		users.emplace_back(users_[session].username);
-	return users;
+	auto it = users_.find(sessionId);
+	if(it != users_.end())
+		return it->second;
+	return {};
 }
 std::string Server::generateSessionId()
 {

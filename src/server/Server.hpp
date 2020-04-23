@@ -74,10 +74,8 @@ public:
 	void onMessage(boost::shared_ptr<WebsocketSession> connection, std::istream& content, boost::asio::yield_context yield);
 
 	std::string addLobby(std::shared_ptr<Lobby> lobby);
-	void setUsername(const std::string& session, std::string username);
-	User getUser(const std::string_view& sessionId);
-	User getUser(const std::string& sessionId);
-	std::vector<std::string> translateUsers(const std::vector<std::string>& sessions);
+	std::optional<User> getUser(const std::string_view& sessionId);
+	std::optional<User> getUser(const std::string& sessionId);
 
 	std::string generateSessionId();
 };
