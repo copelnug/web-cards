@@ -489,41 +489,38 @@ std::string LobbyEnfer::serializeGameState(const std::vector<std::string>& usern
 	}
 
 	// Ranking
-	if(game.state() == State::Finished)
+	row.clear();
+	data.clear();
+	row.put("style", "header");
+	
+	node.clear();
+	node.put_value(TRAD("Classement"));
+	data.push_back(std::make_pair("", node));
+
+	std::vector<unsigned short> score;
+	for(unsigned short i = 0; i < game.numberOfPlayers(); ++i)
 	{
-		row.clear();
-		data.clear();
-		row.put("style", "header");
+		score.push_back(game.scoreFor(i, game.scoredRound()).points);
+	}
+	std::sort(score.begin(), score.end(), [](unsigned short p1, unsigned short p2) {
+		return p1 > p2;
+	});
+
+	for(unsigned short i = 0; i < game.numberOfPlayers(); ++i)
+	{
+		auto pscore = game.scoreFor(i, game.scoredRound()).points;
+		
+		auto it = std::find(score.begin(), score.end(), pscore);
+		
+		std::ostringstream out;
+		out << (it - score.begin() + 1);
 		
 		node.clear();
-		node.put_value(TRAD("Classement"));
+		node.put_value(std::move(out).str());
 		data.push_back(std::make_pair("", node));
-
-		std::vector<unsigned short> score;
-		for(unsigned short i = 0; i < game.numberOfPlayers(); ++i)
-		{
-			score.push_back(game.scoreFor(i, game.scoredRound()).points);
-		}
-		std::sort(score.begin(), score.end(), [](unsigned short p1, unsigned short p2) {
-			return p1 > p2;
-		});
-
-		for(unsigned short i = 0; i < game.numberOfPlayers(); ++i)
-		{
-			auto pscore = game.scoreFor(i, game.scoredRound()).points;
-			
-			auto it = std::find(score.begin(), score.end(), pscore);
-			
-			std::ostringstream out;
-			out << (it - score.begin() + 1);
-			
-			node.clear();
-			node.put_value(std::move(out).str());
-			data.push_back(std::make_pair("", node));
-		}
-		row.add_child("data", data);
-		array.push_back(std::make_pair("", row));
 	}
+	row.add_child("data", data);
+	array.push_back(std::make_pair("", row));
 
 	msg.add_child("score", std::move(array));
 
