@@ -529,6 +529,83 @@ TEST_CASE("Serialize a enfer game state", "[LobbyEnfer][LobbyEnfer_serialize]")
 			R"_(})_"
 		});
 	}
+	SECTION("No score yet")
+	{
+		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
+		Round round{
+			{
+				Hand{ {Kind::Clover, Value::Two}, {Kind::Clover, Value::Ace}, {Kind::Pike, Value::Five} },
+				Hand{ {Kind::Clover, Value::Three}, {Kind::Pike, Value::Ace}, {Kind::Pike, Value::Seven} },
+				Hand{ {Kind::Clover, Value::Four}, {Kind::Pike, Value::Eight} },
+				Hand{ {Kind::Heart, Value::Ace}, {Kind::Pike, Value::Nine} },
+			},
+			{
+				Round::PlayerStatus{0, 0},
+				Round::PlayerStatus{},
+				Round::PlayerStatus{1},
+				Round::PlayerStatus{2,1}
+			},
+			{ Card{ Kind::Heart, Value::Two} },
+			Hand{{Kind::Tile, Value::Ace}, {Kind::Clover, Value::Six}},
+			2
+		};
+
+		Game game{4, {},
+			std::move(round),
+			3,
+			seed
+		};
+
+		CHECK_THAT(serializeGameState(Players, game, 2), StrEqualIgnoreSpaces{
+			R"_({)_"
+			R"_(	"type": "STATE",)_"
+			R"_(    "strong": {"kind": "HEART", "value": "TWO"},)_"
+			R"_(	"play": [)_"
+			R"_(		{)_"
+			R"_(			"player": "Charlie",)_"
+			R"_(			"state": "0 sur 1",)_"
+            R"_(			"card": {)_"
+			R"_(				"kind": "TILE",)_"
+			R"_(				"value": "ACE")_"
+			R"_(			},)_"
+			R"_(			"status": "current")_"
+			R"_(		},)_"
+			R"_(		{)_"
+			R"_(			"player": "Damian",)_"
+			R"_(			"state": "1 sur 2",)_"
+            R"_(			"card": {)_"
+			R"_(				"kind": "CLOVER",)_"
+			R"_(				"value": "SIX")_"
+			R"_(			})_"
+			R"_(		},)_"
+			R"_(		{)_"
+			R"_(			"player": "Anna",)_"
+			R"_(			"state": "0 sur 0")_"
+			R"_(		},)_"
+			R"_(		{)_"
+			R"_(			"player": "Bob",)_"
+			R"_(			"state": "?")_"
+			R"_(		})_"
+			R"_(	],)_"
+			R"_(	"hand": [)_"
+			R"_(		{"kind": "CLOVER", "value": "FOUR", "playable": "true"},)_"
+			R"_(		{"kind": "PIKE", "value": "EIGHT", "playable": "true"})_"
+			R"_(	],)_"
+			R"_(	"score": [)_"
+			R"_(		{)_"
+			R"_(			"style": "header",)_"
+			R"_(			"data": [)_"
+			R"_(				"Cartes",)_"
+			R"_(				"Anna",)_"
+			R"_(				"Bob",)_"
+			R"_(				"Charlie",)_"
+			R"_(				"Damian")_"
+			R"_(			])_"
+			R"_(		})_"
+			R"_(	])_"
+			R"_(})_"
+		});
+	}
 	SECTION("Round finished")
 	{
 		const std::vector<std::string> Players{"Anna", "Bob", "Charlie", "Damian"};
