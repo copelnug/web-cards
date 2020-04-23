@@ -465,6 +465,9 @@
 			button {
 				font-size: 2rem;
 			}
+			.left {
+				float: left;
+			}
 			.smallButton {
 				border: 1px solid black;
 				border-radius: 5px;
@@ -500,9 +503,6 @@
 			}
 			#view_score td .icon-status, #view_score th .icon-status {
 				width: 1rem;
-			}
-			#view_score td .left {
-				float: left;
 			}
 			#view_play {
 				margin: 0px;
@@ -573,7 +573,7 @@
 				text-align: center;
 				width: 100%;
 				font-size: 2rem;
-				padding: 20px;
+				padding: 5px;
 			}
 			.play_event_notify {
 				border: 1px solid black;
@@ -733,14 +733,16 @@
 							<label id="play_event_choose_text"></label>
 						</div>
 						<div id="play_event_choose_confirm" class="play_event_input hidden">
-							<div class="event_error hidden"></div>
-							<label>Êtes-vous certain de vouloir jouer cette carte?</label>
-							<div id="play_event_choose_confirm_card" >
-							</div>
+							<div>
+								<div class="event_error hidden"></div>
+								<div id="play_event_choose_confirm_card" class="left" >
+								</div>
+								<label>Êtes-vous certain de vouloir jouer cette carte?</label>
 
-							<div class="buttonRow">
-								<button onclick='acceptCard()'>Oui</button>
-								<button onclick='refuseCard()'>Non</button>
+								<div class="buttonRow">
+									<button onclick='acceptCard()'>Oui</button>
+									<button onclick='refuseCard()'>Non</button>
+								</div>
 							</div>
 						</div>
 						<div id="play_event_next" class="play_event_input hidden">
