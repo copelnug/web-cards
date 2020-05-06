@@ -11,7 +11,6 @@
 #include <boost/beast/http/read.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include <boost/beast/websocket.hpp>
-#include <boost/beast/websocket/detail/error.hpp>
 #include <boost/beast/websocket/rfc6455.hpp>
 #include <boost/beast/websocket/stream.hpp>
 #include <boost/make_shared.hpp>
@@ -90,7 +89,7 @@ void do_listen(Server* server, boost::asio::io_context& ioc, tcp::endpoint endpo
 		if(ec)
 			; // TODO Error
 		boost::asio::spawn(
-			acceptor.get_executor().context(),
+			acceptor.get_executor(),
 			std::bind(
 				&do_session,
 				server,

@@ -1,5 +1,7 @@
 #include "WebsocketSession.hpp"
 
+#include <iostream>
+
 #include "Server.hpp"
 
 namespace
@@ -39,7 +41,7 @@ WebsocketSession::~WebsocketSession()
 }
 void WebsocketSession::close()
 {
-	ws_.lowest_layer().close();
+	boost::beast::get_lowest_layer(ws_).close();
 }
 void WebsocketSession::run(boost::beast::http::request<boost::beast::http::string_body> initial_request, boost::asio::yield_context yield)
 {
