@@ -58,6 +58,8 @@ void do_session(Server* server, tcp::socket& socket, boost::asio::yield_context 
 			// For example, another thread may be running a coroutine that will broadcast a message to all WebsocketSession. Thus we need that to 
 			// finish before we can destroy the WebsocketSession.
 			auto ws = server->canAcceptConnection(std::move(socket), req, yield);
+			if(!ws)
+				return;
 			return ws->run(std::move(req), yield);
 		}
 		

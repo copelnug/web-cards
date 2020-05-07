@@ -217,12 +217,20 @@ boost::shared_ptr<WebsocketSession> Server::canAcceptConnection(boost::asio::ip:
 
 	auto inputSession = extractSession(initial_request[boost::beast::http::field::cookie]);
 	if(!inputSession)
+	{
+		boost::system::error_code ec;
+		socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
 		return {};
+	}
 
 	if(initial_request.target() != GLOBAL_ENDPOINT)
 	{
 		if(!getLobby(initial_request.target().to_string()))
+		{
+			boost::system::error_code ec;
+			socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
 			return {};
+		}
 	}
 	// TODO We could inherit from websocket session to add information. ex: server, session and endpoint
 	return boost::make_shared<WebsocketSession>(this, std::move(socket), *inputSession, yield);
