@@ -485,7 +485,7 @@ std::string LobbyEnfer::serializeGameState(const std::vector<PlayerInfo>& player
 		row.put("style", "normal");
 
 		node.clear();
-		node.put_value(Cards::Enfer::roundTitle(game.numberOfPlayers(), i));
+		node.put_value(Cards::Enfer::roundTitle(game.numberOfPlayers(), i, game.maxRound()));
 		data.push_back(std::make_pair("", node));
 		
 		for(unsigned short j = 0; j < game.numberOfPlayers(); ++j)

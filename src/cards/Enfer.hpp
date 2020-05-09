@@ -54,7 +54,7 @@ namespace Cards
 			unsigned short handStartingPlayer_;
 			PlayerIter currentPlayer_;
 		public:
-			Round(Hand shuffledDeck, unsigned short playersCount, unsigned short startingPlayer, unsigned short roundNumber);
+			Round(Hand shuffledDeck, unsigned short playersCount, unsigned short startingPlayer, unsigned short roundNumber, unsigned short maxRound);
 			// For tests and maybe restore
 			Round(std::vector<Hand> hands, std::vector<PlayerStatus> status, std::optional<Card> strong, Hand played, unsigned short handStartingPlayer);
 			
@@ -92,15 +92,17 @@ namespace Cards
 			std::vector<RoundScore> scores_;
 			unsigned short numberOfPlayers_;
 			unsigned short currentRoundNumber_;
+			unsigned short maxRound_;
 			Round currentRound_;
 
 		public:
-			Game(unsigned short numberOfPlayers, std::seed_seq& randomSeed);
+			Game(unsigned short numberOfPlayers, std::seed_seq& randomSeed, const std::optional<unsigned short>& nbRound = {});
 			// For test or maybe for load
-			Game(unsigned short numberOfPlayers, std::vector<RoundScore> scores, Round currentRound, unsigned short currentRoundNumber, std::seed_seq& randomSeed);
+			Game(unsigned short numberOfPlayers, std::vector<RoundScore> scores, Round currentRound, unsigned short currentRoundNumber, std::seed_seq& randomSeed, const std::optional<unsigned short>& nbRound = {});
 
 			unsigned short numberOfPlayers() const { return numberOfPlayers_; }
 			unsigned short currentRound() const { return currentRoundNumber_; }
+			unsigned short maxRound() const { return maxRound_; }
 			unsigned short roundNbCards() const;
 			unsigned short playerStartingForRound(unsigned short roundNumber) const;
 
@@ -132,8 +134,8 @@ namespace Cards
 		bool canPlay(const Hand& hand, const Card& choice, const Card& firstCard);
 		bool stronger(const Card& newcard, const Card& toBeat, const std::optional<Card>& stronger);
 		unsigned short numberOfRounds(unsigned short nbPlayers);
-		unsigned short numberOfCardsForRound(unsigned short nbPlayers, unsigned short roundNumber);
-		std::string roundTitle(unsigned short nbPlayers, unsigned roundNumber);
+		unsigned short numberOfCardsForRound(unsigned short nbPlayers, unsigned short roundNumber, unsigned short maxRound);
+		std::string roundTitle(unsigned short nbPlayers, unsigned roundNumber, unsigned short maxRound);
 	}
 }
 

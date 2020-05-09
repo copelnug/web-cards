@@ -2,6 +2,7 @@
 #include "Exception.hpp"
 #include "StandardCards.hpp"
 #include <algorithm>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 
@@ -12,6 +13,12 @@ namespace
 		auto deck = Cards::Standard::createFullDeck();
 		std::shuffle(deck.begin(), deck.end(), random);
 		return deck;
+	}
+	unsigned short computeMaxRound(unsigned short nbPlayers, const std::optional<unsigned short>& forcedMaxRound)
+	{
+		if(forcedMaxRound)
+			return *forcedMaxRound;
+		return Cards::Enfer::numberOfRounds(nbPlayers);
 	}
 }
 
@@ -41,14 +48,14 @@ Cards::Enfer::Round::PlayerStatus::PlayerStatus(unsigned short target, unsigned 
 	target{target},
 	obtained{obtained}
 {}
-Cards::Enfer::Round::Round(Hand shuffledDeck, unsigned short playersCount, unsigned short startingPlayer, unsigned short roundNumber) :
+Cards::Enfer::Round::Round(Hand shuffledDeck, unsigned short playersCount, unsigned short startingPlayer, unsigned short roundNumber, unsigned short maxRound) :
 	handStartingPlayer_{startingPlayer},
 	currentPlayer_{playersCount, startingPlayer}
 {
 	if(shuffledDeck.size() != Standard::FullDeckSize)
 		throw std::logic_error("Trying to create a round with an invalid deck");
 
-	auto nbCards = numberOfCardsForRound(playersCount, roundNumber);
+	auto nbCards = numberOfCardsForRound(playersCount, roundNumber, maxRound);
 	for(unsigned short i = 0; i < playersCount; ++i)
 	{
 		Hand hand{shuffledDeck.end() - nbCards, shuffledDeck.end()};
@@ -58,7 +65,7 @@ Cards::Enfer::Round::Round(Hand shuffledDeck, unsigned short playersCount, unsig
 		status_.emplace_back();
 	}
 	
-	if(nbCards == roundNumber && !shuffledDeck.empty())
+	if(roundNumber != maxRound && !shuffledDeck.empty())
 	{
 		strong_ = shuffledDeck.back();
 		shuffledDeck.pop_back();
@@ -217,22 +224,24 @@ Cards::Enfer::Game::ScoreCase::ScoreCase(unsigned short target, unsigned short p
 	points{points},
 	succeed{succeed}
 {}
-Cards::Enfer::Game::Game(unsigned short numberOfPlayers, std::seed_seq& randomSeed) :
+Cards::Enfer::Game::Game(unsigned short numberOfPlayers, std::seed_seq& randomSeed, const std::optional<unsigned short>& nbRound) :
 	randomEngine_{randomSeed},
 	numberOfPlayers_{numberOfPlayers},
 	currentRoundNumber_{1},
-	currentRound_{createShuffledDeck(randomEngine_), numberOfPlayers_, 0, currentRoundNumber_}
+	maxRound_{computeMaxRound(numberOfPlayers_, nbRound)},
+	currentRound_{createShuffledDeck(randomEngine_), numberOfPlayers_, 0, currentRoundNumber_, maxRound_}
 {}
-Cards::Enfer::Game::Game(unsigned short numberOfPlayers, std::vector<RoundScore> scores, Round currentRound, unsigned short currentRoundNumber, std::seed_seq& randomSeed) :
+Cards::Enfer::Game::Game(unsigned short numberOfPlayers, std::vector<RoundScore> scores, Round currentRound, unsigned short currentRoundNumber, std::seed_seq& randomSeed, const std::optional<unsigned short>& nbRound) :
 	randomEngine_{randomSeed},
 	scores_{std::move(scores)},
 	numberOfPlayers_{numberOfPlayers},
 	currentRoundNumber_{currentRoundNumber},
+	maxRound_{computeMaxRound(numberOfPlayers_, nbRound)},
 	currentRound_{std::move(currentRound)}
 {}
 unsigned short Cards::Enfer::Game::roundNbCards() const
 {
-	return numberOfCardsForRound(numberOfPlayers_, currentRoundNumber_);
+	return numberOfCardsForRound(numberOfPlayers_, currentRoundNumber_, maxRound_);
 }
 unsigned short Cards::Enfer::Game::playerStartingForRound(unsigned short roundNumber) const
 {
@@ -275,8 +284,7 @@ Cards::Enfer::State Cards::Enfer::Game::state() const
 		case State::GotoNext:
 		case State::Finished:
 		{
-			auto maxRound = numberOfRounds(numberOfPlayers_);
-			if(currentRoundNumber_ >= maxRound)
+			if(currentRoundNumber_ >= maxRound_)
 				return State::Finished;
 			return State::GotoNext;
 		}
@@ -363,12 +371,11 @@ void Cards::Enfer::Game::gotoNextRound()
 			throw GameFinished{};
 	}
 
-	auto maxRound = numberOfRounds(numberOfPlayers_);
-	if(currentRoundNumber_ >= maxRound)
+	if(currentRoundNumber_ >= maxRound_)
 		return; // Game done
 
 	++currentRoundNumber_;
-	currentRound_ = Round{createShuffledDeck(randomEngine_), numberOfPlayers_, playerStartingForRound(currentRoundNumber_), currentRoundNumber_};
+	currentRound_ = Round{createShuffledDeck(randomEngine_), numberOfPlayers_, playerStartingForRound(currentRoundNumber_), currentRoundNumber_, maxRound_};
 }
 bool Cards::Enfer::canPlay(const Hand& hand, const Card& choice, const Card& firstCard)
 {
@@ -411,24 +418,32 @@ unsigned short Cards::Enfer::numberOfRounds(unsigned short nbPlayers)
 
 	Throw exception if roundnumber > numberOfRounds(nbPlayers) or equal to 0
 */
-unsigned short Cards::Enfer::numberOfCardsForRound(unsigned short nbPlayers, unsigned short roundNumber)
+unsigned short Cards::Enfer::numberOfCardsForRound(unsigned short nbPlayers, unsigned short roundNumber, unsigned short maxRound)
 {
 	if(roundNumber == 0)
 		throw std::logic_error{"Cards::Enfer::numberOfCardsForRound round number of 0"};
-	if(roundNumber > numberOfRounds(nbPlayers))
+	if(roundNumber > maxRound)
 		throw std::logic_error{"Cards::Enfer::numberOfCardsForRound round number too high"};// TODO Use std::format or fmtlib to add the params
+	// So maxRound must be > 0 (or we would fail one on the two previous conditions). Then:
+	// 		The last round number (m) is equal to the last round with strong card number (s) + 1
+	//		The number of the last round with strong card (s) is equal to the number of cards in that round
+	//		Each player having that qty of cards, the total must be inferior to 52 (because we keep one for the strong card)
+	// Thus an error when: n*p >= 52    =>    (m-1)*p>=52
+	// 
+	if( (maxRound-1)*nbPlayers >= Standard::FullDeckSize)
+		throw std::logic_error{"Cards::Enfer::numberOfCardsForRound max round number is invalid"};
 
-	if(roundNumber * nbPlayers > Standard::FullDeckSize)
-		return Standard::FullDeckSize / nbPlayers;
-	return roundNumber;
+	if(roundNumber*nbPlayers <= Standard::FullDeckSize)
+		return roundNumber;
+	return Standard::FullDeckSize / nbPlayers;
 }
-std::string Cards::Enfer::roundTitle(unsigned short nbPlayers, unsigned roundNumber)
+std::string Cards::Enfer::roundTitle(unsigned short nbPlayers, unsigned roundNumber, unsigned short maxRound)
 {
-	auto nbCards = numberOfCardsForRound(nbPlayers, roundNumber);
+	auto nbCards = numberOfCardsForRound(nbPlayers, roundNumber, maxRound);
 
 	std::ostringstream out;
 	out << nbCards;
-	if(roundNumber * nbPlayers >= Standard::FullDeckSize)
+	if(roundNumber == maxRound)
 		out << '*';
 	return std::move(out).str();
 }

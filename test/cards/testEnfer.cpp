@@ -106,66 +106,88 @@ TEST_CASE("Enfer: Compute the number of cards for a round", "[cards][cards_enfer
 {
 	using Cards::Enfer::numberOfCardsForRound;
 
-	CHECK_THROWS(numberOfCardsForRound(3,0));
-	CHECK(numberOfCardsForRound(3, 1) == 1);
-	CHECK(numberOfCardsForRound(3, 13) == 13);
-	CHECK(numberOfCardsForRound(3, 17) == 17);
-	CHECK(numberOfCardsForRound(3, 18) == 17);
-	CHECK_THROWS(numberOfCardsForRound(3,19));
+	CHECK_THROWS(numberOfCardsForRound(3,0,18));
+	CHECK(numberOfCardsForRound(3, 1, 18) == 1);
+	CHECK(numberOfCardsForRound(3, 13, 18) == 13);
+	CHECK(numberOfCardsForRound(3, 17, 18) == 17);
+	CHECK(numberOfCardsForRound(3, 18, 18) == 17);
+	CHECK_THROWS(numberOfCardsForRound(3,19,18));
 
-	CHECK_THROWS(numberOfCardsForRound(4,0));
-	CHECK(numberOfCardsForRound(4, 1) == 1);
-	CHECK(numberOfCardsForRound(4, 5) == 5);
-	CHECK(numberOfCardsForRound(4, 12) == 12);
-	CHECK(numberOfCardsForRound(4, 13) == 13);
-	CHECK_THROWS(numberOfCardsForRound(4,14));
+	CHECK_THROWS(numberOfCardsForRound(4,0,13));
+	CHECK(numberOfCardsForRound(4, 1, 13) == 1);
+	CHECK(numberOfCardsForRound(4, 5, 13) == 5);
+	CHECK(numberOfCardsForRound(4, 12, 13) == 12);
+	CHECK(numberOfCardsForRound(4, 13, 13) == 13);
+	CHECK_THROWS(numberOfCardsForRound(4,14,13));
 
-	CHECK_THROWS(numberOfCardsForRound(5,0));
-	CHECK(numberOfCardsForRound(5, 1) == 1);
-	CHECK(numberOfCardsForRound(5, 5) == 5);
-	CHECK(numberOfCardsForRound(5, 10) == 10);
-	CHECK(numberOfCardsForRound(5, 11) == 10);
-	CHECK_THROWS(numberOfCardsForRound(5,12));
+	CHECK_THROWS(numberOfCardsForRound(5,0,11));
+	CHECK(numberOfCardsForRound(5, 1, 11) == 1);
+	CHECK(numberOfCardsForRound(5, 5, 11) == 5);
+	CHECK(numberOfCardsForRound(5, 10, 11) == 10);
+	CHECK(numberOfCardsForRound(5, 11, 11) == 10);
+	CHECK_THROWS(numberOfCardsForRound(5,12,11));
 
-	CHECK_THROWS(numberOfCardsForRound(6,0));
-	CHECK(numberOfCardsForRound(6, 1) == 1);
-	CHECK(numberOfCardsForRound(6, 5) == 5);
-	CHECK(numberOfCardsForRound(6, 8) == 8);
-	CHECK(numberOfCardsForRound(6, 9) == 8);
-	CHECK_THROWS(numberOfCardsForRound(6,10));
+	CHECK_THROWS(numberOfCardsForRound(6,0,9));
+	CHECK(numberOfCardsForRound(6, 1, 9) == 1);
+	CHECK(numberOfCardsForRound(6, 5, 9) == 5);
+	CHECK(numberOfCardsForRound(6, 8, 9) == 8);
+	CHECK(numberOfCardsForRound(6, 9, 9) == 8);
+	CHECK_THROWS(numberOfCardsForRound(6,10,9));
 
-	CHECK_THROWS(numberOfCardsForRound(7,0));
-	CHECK(numberOfCardsForRound(7, 1) == 1);
-	CHECK(numberOfCardsForRound(7, 5) == 5);
-	CHECK(numberOfCardsForRound(7, 7) == 7);
-	CHECK(numberOfCardsForRound(7, 8) == 7);
-	CHECK_THROWS(numberOfCardsForRound(7,9));
+	CHECK_THROWS(numberOfCardsForRound(7,0,8));
+	CHECK(numberOfCardsForRound(7, 1, 8) == 1);
+	CHECK(numberOfCardsForRound(7, 5, 8) == 5);
+	CHECK(numberOfCardsForRound(7, 7, 8) == 7);
+	CHECK(numberOfCardsForRound(7, 8, 8) == 7);
+	CHECK_THROWS(numberOfCardsForRound(7,9,8));
 
-	CHECK_THROWS(numberOfCardsForRound(8,0));
-	CHECK(numberOfCardsForRound(8, 1) == 1);
-	CHECK(numberOfCardsForRound(8, 5) == 5);
-	CHECK(numberOfCardsForRound(8, 6) == 6);
-	CHECK(numberOfCardsForRound(8, 7) == 6);
-	CHECK_THROWS(numberOfCardsForRound(8,8));
+	CHECK_THROWS(numberOfCardsForRound(8,0,7));
+	CHECK(numberOfCardsForRound(8, 1, 7) == 1);
+	CHECK(numberOfCardsForRound(8, 5, 7) == 5);
+	CHECK(numberOfCardsForRound(8, 6, 7) == 6);
+	CHECK(numberOfCardsForRound(8, 7, 7) == 6);
+	CHECK_THROWS(numberOfCardsForRound(8,8,7));
+
+	// Not playing with full cards
+	CHECK_THROWS(numberOfCardsForRound(3,0,4));
+	CHECK(numberOfCardsForRound(3, 1, 4) == 1);
+	CHECK(numberOfCardsForRound(3, 2, 4) == 2);
+	CHECK(numberOfCardsForRound(3, 3, 4) == 3);
+	CHECK(numberOfCardsForRound(3, 4, 4) == 4);
+	CHECK_THROWS(numberOfCardsForRound(3,5,4));
+
+	// Invalid max round
+	CHECK_THROWS(numberOfCardsForRound(3,5,19));
+	CHECK_THROWS(numberOfCardsForRound(4,5,14));
+	CHECK_THROWS(numberOfCardsForRound(5,5,12));
+	CHECK_THROWS(numberOfCardsForRound(6,5,10));
+	CHECK_THROWS(numberOfCardsForRound(7,5,9));
+	CHECK_THROWS(numberOfCardsForRound(8,5,8));
 }
 TEST_CASE("Enfer: Get the title string of a round", "[cards][cards_enfer]")
 {
 	using Cards::Enfer::roundTitle;
 
-	CHECK(roundTitle(4, 12) == "12");
-	CHECK(roundTitle(4, 13) == "13*");
-	CHECK_THROWS_AS(roundTitle(4, 14), std::logic_error);
-	CHECK_THROWS_AS(roundTitle(4, 0), std::logic_error);
+	CHECK(roundTitle(4, 12, 13) == "12");
+	CHECK(roundTitle(4, 13, 13) == "13*");
+	CHECK_THROWS_AS(roundTitle(4, 14, 13), std::logic_error);
+	CHECK_THROWS_AS(roundTitle(4, 0, 13), std::logic_error);
 
-	CHECK(roundTitle(5, 10) == "10");
-	CHECK(roundTitle(5, 11) == "10*");
-	CHECK_THROWS_AS(roundTitle(5, 12), std::logic_error);
-	CHECK_THROWS_AS(roundTitle(5, 0), std::logic_error);
+	CHECK(roundTitle(5, 10, 11) == "10");
+	CHECK(roundTitle(5, 11, 11) == "10*");
+	CHECK_THROWS_AS(roundTitle(5, 12, 10), std::logic_error);
+	CHECK_THROWS_AS(roundTitle(5, 0, 10), std::logic_error);
 
-	CHECK(roundTitle(6, 8) == "8");
-	CHECK(roundTitle(6, 9) == "8*");
-	CHECK_THROWS_AS(roundTitle(6, 10), std::logic_error);
-	CHECK_THROWS_AS(roundTitle(6, 0), std::logic_error);
+	CHECK(roundTitle(6, 8, 9) == "8");
+	CHECK(roundTitle(6, 9, 9) == "8*");
+	CHECK_THROWS_AS(roundTitle(6, 10, 9), std::logic_error);
+	CHECK_THROWS_AS(roundTitle(6, 0, 9), std::logic_error);
+
+	// Not playing with full cards
+	CHECK(roundTitle(4, 4, 5) == "4");
+	CHECK(roundTitle(4, 5, 5) == "5*");
+	CHECK_THROWS_AS(roundTitle(4, 6, 5), std::logic_error);
+	CHECK_THROWS_AS(roundTitle(4, 0, 5), std::logic_error);
 }
 TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 {
@@ -178,10 +200,10 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 
 	SECTION("Invalid round number")
 	{
-		CHECK_THROWS(Round{Hand{}, 4, 0, 1});
-		CHECK_THROWS(Round{Cards::Standard::createFullDeck(), 4, 0, 0});
-		CHECK_THROWS(Round{Cards::Standard::createFullDeck(), 4, 0, 14});
-		CHECK_THROWS(Round{Cards::Standard::createFullDeck(), 5, 0, 12});
+		CHECK_THROWS(Round{Hand{}, 4, 0, 1, 10});
+		CHECK_THROWS(Round{Cards::Standard::createFullDeck(), 4, 0, 0, 13});
+		CHECK_THROWS(Round{Cards::Standard::createFullDeck(), 4, 0, 14, 13});
+		CHECK_THROWS(Round{Cards::Standard::createFullDeck(), 5, 0, 12, 11});
 	}
 	SECTION("#1 for 4: Initial player win")
 	{
@@ -215,7 +237,7 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 		Hand hand3{ {Kind::Tile, Value::Ten} };
 		Hand played;
 
-		Round round(deck, 4, 2, 1);
+		Round round(deck, 4, 2, 1, 13);
 
 		// Check starting status
 		CHECK(round.state() == State::SetTarget);
@@ -381,7 +403,7 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 			{Kind::Tile, Value::Ace},     {Kind::Heart, Value::Three}, {Kind::Pike, Value::Ten},
 			{Kind::Pike, Value::Jack},    {Kind::Tile, Value::Ten},    {Kind::Tile, Value::Four},
 		};
-		Round round(deck, 5, 3, 6);
+		Round round(deck, 5, 3, 6, 11);
 		Hand played;
 
 		CHECK(round.strong() == Card{Kind::Clover, Value::Seven});
@@ -615,7 +637,7 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 			{Kind::Pike, Value::King}, {Kind::Tile, Value::Jack}, {Kind::Tile, Value::Eight}, {Kind::Tile, Value::Queen},
 		};
 		
-		Round round(deck, 6, 5, 9);
+		Round round(deck, 6, 5, 9, 9);
 
 		CHECK_FALSE(round.strong());
 
@@ -732,6 +754,62 @@ TEST_CASE("Enfer: Test a round", "[cards][cards_enfer][cards_enfer_round]")
 
 		CHECK(round.status() == std::vector<Round::PlayerStatus>{
 			{1}, {1,1}, {0}, {2,5}, {1,1}, {1,1},
+		});
+	}
+	SECTION("Round 1 of 1")
+	{
+		Hand deck{
+			{Kind::Heart, Value::Two},  {Kind::Tile, Value::Two},  {Kind::Clover, Value::Two},  {Kind::Pike, Value::Two},
+			{Kind::Heart, Value::Three},{Kind::Tile, Value::Three},{Kind::Clover, Value::Three},{Kind::Pike, Value::Three},
+			{Kind::Heart, Value::Four}, {Kind::Tile, Value::Four}, {Kind::Clover, Value::Four}, {Kind::Pike, Value::Four},
+										{Kind::Tile, Value::Five}, {Kind::Clover, Value::Five},
+			{Kind::Heart, Value::Six},  {Kind::Tile, Value::Six},  {Kind::Clover, Value::Six},
+			{Kind::Heart, Value::Seven},{Kind::Tile, Value::Seven},{Kind::Clover, Value::Seven},{Kind::Pike, Value::Seven},
+			{Kind::Heart, Value::Eight},{Kind::Tile, Value::Eight},{Kind::Clover, Value::Eight},{Kind::Pike, Value::Eight},
+			{Kind::Heart, Value::Nine}, {Kind::Tile, Value::Nine}, {Kind::Clover, Value::Nine}, {Kind::Pike, Value::Nine},
+			{Kind::Heart, Value::Ten},                             {Kind::Clover, Value::Ten},  {Kind::Pike, Value::Ten},
+			{Kind::Heart, Value::Jack}, {Kind::Tile, Value::Jack}, {Kind::Clover, Value::Jack}, {Kind::Pike, Value::Jack},
+			{Kind::Heart, Value::Queen},{Kind::Tile, Value::Queen},{Kind::Clover, Value::Queen},{Kind::Pike, Value::Queen},
+			{Kind::Heart, Value::King}, {Kind::Tile, Value::King}, {Kind::Clover, Value::King}, {Kind::Pike, Value::King},
+			{Kind::Heart, Value::Ace},  {Kind::Tile, Value::Ace},                               {Kind::Pike, Value::Ace},
+
+			{Kind::Heart, Value::Five},
+			{Kind::Tile, Value::Ten},
+			{Kind::Pike, Value::Six},
+			{Kind::Clover, Value::Ace},
+			{Kind::Pike, Value::Five},
+		};
+
+		const Round::PlayerStatus NoStatus{};
+		const Round::PlayerStatus TargetNone{0};
+		Hand hand0{ {Kind::Pike, Value::Five} };
+		Hand hand1{ {Kind::Clover, Value::Ace} };
+		Hand hand2{ {Kind::Pike, Value::Six} };
+		Hand hand3{ {Kind::Tile, Value::Ten} };
+		Hand played;
+
+		Round round(deck, 4, 2, 1, 1);
+
+		CHECK_FALSE(round.strong());
+
+		REQUIRE_NOTHROW(round.setTarget(2, 0));
+		REQUIRE_NOTHROW(round.setTarget(3, 0));
+		REQUIRE_NOTHROW(round.setTarget(0, 1));
+		REQUIRE_NOTHROW(round.setTarget(1, 1));
+		CHECK(round.status() == std::vector<Round::PlayerStatus>{
+			{1}, {1}, {0}, {0},
+		});
+		CHECK(round.state() == State::Play);
+
+		// Hand
+		REQUIRE_NOTHROW(round.play(2, {Kind::Pike, Value::Six}));
+		REQUIRE_NOTHROW(round.play(3, {Kind::Tile, Value::Ten}));
+		REQUIRE_NOTHROW(round.play(0, {Kind::Pike, Value::Five}));
+		REQUIRE_NOTHROW(round.play(1, {Kind::Clover, Value::Ace}));
+		CHECK(round.currentPlayer() == 2);
+		CHECK(round.state() == State::Finished);
+		CHECK(round.status() == std::vector<Round::PlayerStatus>{
+			{1}, {1}, {0,1}, {0},
 		});
 	}
 }
@@ -1826,5 +1904,62 @@ TEST_CASE("Enfer: Test a Game", "[cards][cards_enfer][cards_enfer_game]")
 		CHECK_THROWS_AS(game.setTarget(0, 0), Cards::GameFinished);
 		CHECK_THROWS_AS(game.play(0, {Kind::Clover, Value::Two}), Cards::GameFinished);
 		CHECK_THROWS_AS(game.gotoNextRound(), Cards::GameFinished);
+	}
+	SECTION("1 round max")
+	{
+		Game game{4, seed, 1};
+
+		CHECK(game.numberOfPlayers() == 4);
+		CHECK(game.currentRound() == 1);
+		CHECK(game.roundNbCards() == 1);
+		CHECK(game.maxRound() == 1);
+		CHECK(game.roundState(0) == Round::PlayerStatus{});
+		CHECK(game.roundState(1) == Round::PlayerStatus{});
+		CHECK(game.roundState(2) == Round::PlayerStatus{});
+		CHECK(game.roundState(3) == Round::PlayerStatus{});
+		CHECK(game.roundState() == std::vector<Round::PlayerStatus>{game.roundState(0), game.roundState(1), game.roundState(2), game.roundState(3)});
+		CHECK(game.state() == State::SetTarget);
+		CHECK(game.handStartingPlayer() == 0);
+		CHECK(game.currentHand() == Hand{});
+		CHECK(game.scoredRound() == 0);
+
+		// Round 1
+		CHECK_FALSE(game.strong());
+		CHECK(game.playerHand(0) == Hand{{Kind::Pike, Value::Five}});
+		CHECK(game.playerHand(1) == Hand{{Kind::Tile, Value::Four}});
+		CHECK(game.playerHand(2) == Hand{{Kind::Clover, Value::Three}});
+		REQUIRE(game.playerHand(3) == Hand{{Kind::Heart, Value::Ten}});
+		REQUIRE_NOTHROW(game.setTarget(0, 1));
+		REQUIRE_NOTHROW(game.setTarget(1, 0));
+		REQUIRE_NOTHROW(game.setTarget(2, 0));
+		REQUIRE_NOTHROW(game.setTarget(3, 1));
+		CHECK(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
+		CHECK(game.roundState(0) == Round::PlayerStatus{1});
+		CHECK(game.roundState(1) == Round::PlayerStatus{0});
+		CHECK(game.roundState(2) == Round::PlayerStatus{0});
+		CHECK(game.roundState(3) == Round::PlayerStatus{1});
+		CHECK(game.roundState() == std::vector<Round::PlayerStatus>{game.roundState(0), game.roundState(1), game.roundState(2), game.roundState(3)});
+		CHECK(game.state() == State::Play);
+		REQUIRE_NOTHROW(game.play(0, {Kind::Pike, Value::Five}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
+		REQUIRE_NOTHROW(game.play(1, {Kind::Tile, Value::Four}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
+		REQUIRE_NOTHROW(game.play(2, {Kind::Clover, Value::Three}));
+		CHECK_FALSE(game.isNewHandStarting());
+		CHECK(game.isFirstHandInRound());
+		REQUIRE_NOTHROW(game.play(3, {Kind::Heart, Value::Ten}));
+		CHECK_FALSE(game.isFirstHandInRound());
+		CHECK(game.state() == State::Finished);
+		CHECK(game.scoreFor(0, 1) == Game::ScoreCase{1, 11, true});
+		CHECK(game.scoreFor(1, 1) == Game::ScoreCase{0, 10, true});
+		CHECK(game.scoreFor(2, 1) == Game::ScoreCase{0, 10, true});
+		CHECK(game.scoreFor(3, 1) == Game::ScoreCase{1, 0, false});
+		CHECK(game.scoredRound() == 1);
+		REQUIRE_THROWS_AS(game.play(0, {Kind::Pike, Value::Ten}), Cards::GameFinished);
+		REQUIRE_THROWS_AS(game.setTarget(0, 0), Cards::GameFinished);
+		REQUIRE_THROWS_AS(game.gotoNextRound(), Cards::GameFinished);
 	}
 }
