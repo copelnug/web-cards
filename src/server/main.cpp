@@ -16,6 +16,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/system/error_code.hpp>
 #include <chrono>
+#include <iostream>
 #include <string_view>
 #include <thread>
 #include <utility>
@@ -54,13 +55,20 @@ void do_session(Server* server, tcp::socket& socket, boost::asio::yield_context 
 
 		if(boost::beast::websocket::is_upgrade(req))
 		{
-			// We use shared_ptr because we need the class to stay alive as long as a thread is executing a coroutine in that instance.
-			// For example, another thread may be running a coroutine that will broadcast a message to all WebsocketSession. Thus we need that to 
-			// finish before we can destroy the WebsocketSession.
-			auto ws = server->canAcceptConnection(std::move(socket), req, yield);
-			if(!ws)
+			try {
+				// We use shared_ptr because we need the class to stay alive as long as a thread is executing a coroutine in that instance.
+				// For example, another thread may be running a coroutine that will broadcast a message to all WebsocketSession. Thus we need that to 
+				// finish before we can destroy the WebsocketSession.
+				auto ws = server->canAcceptConnection(std::move(socket), req, yield);
+				if(!ws)
+					return;
+				return ws->run(std::move(req), yield);
+			}
+			catch(const std::exception& ex)
+			{
+				std::cerr << "Websocket exception: " << ex.what() << std::endl;
 				return;
-			return ws->run(std::move(req), yield);
+			}
 		}
 		
 		server->handleRequest(std::move(req), Server::Sender{socket, ec, close, yield});

@@ -128,91 +128,106 @@ void Server::setUser(const std::string& sessionId, User user)
 }
 void Server::handleRequest(boost::beast::http::request<boost::beast::http::string_body> request, Sender&& sender)
 {
-	std::cout << "HTTP " << request.method() << ": " << request.target() << std::endl;
+	try {
+		std::cout << "HTTP " << request.method() << ": " << request.target() << std::endl;
 
-	auto inputSession = extractSession(request[boost::beast::http::field::cookie]);
-	auto session = inputSession ? *inputSession : generateSessionId();
+		auto inputSession = extractSession(request[boost::beast::http::field::cookie]);
+		auto session = inputSession ? *inputSession : generateSessionId();
 
-	if(request.method() == boost::beast::http::verb::get)
-	{
-		std::optional<std::filesystem::path> file = fileRepository_.get(request.target().to_string());
-
-		if(!file)
+		if(request.method() == boost::beast::http::verb::get)
 		{
-			auto lobby = getLobby(request.target());
-			if(lobby)
-				file = lobby->getHtmlFile(session);
-		}
-		
-		if(file)
-		{
-			boost::beast::http::file_body::value_type body;
-			boost::beast::error_code ec;
-			body.open(file->c_str(), boost::beast::file_mode::scan, ec);
-			if(ec) return error("Request read failed.");
+			std::optional<std::filesystem::path> file = fileRepository_.get(request.target().to_string());
 
-			auto const size = body.size();
+			if(!file)
+			{
+				auto lobby = getLobby(request.target());
+				if(lobby)
+					file = lobby->getHtmlFile(session);
+			}
+			
+			if(file)
+			{
+				boost::beast::http::file_body::value_type body;
+				boost::beast::error_code ec;
+				body.open(file->c_str(), boost::beast::file_mode::scan, ec);
+				if(ec) return error("Request read failed.");
 
-			boost::beast::http::response<boost::beast::http::file_body> res{
-				std::piecewise_construct,
-				std::make_tuple(std::move(body)),
-				std::make_tuple(boost::beast::http::status::ok, request.version())
-			};
+				auto const size = body.size();
+
+				boost::beast::http::response<boost::beast::http::file_body> res{
+					std::piecewise_construct,
+					std::make_tuple(std::move(body)),
+					std::make_tuple(boost::beast::http::status::ok, request.version())
+				};
+				res.set(boost::beast::http::field::server, "0.1");
+				res.set(boost::beast::http::field::content_type, getFileFormat(*file));
+				setSession(res, inputSession, session);
+				res.content_length(size);
+				res.keep_alive(request.keep_alive());
+				return sender(std::move(res));
+			}
+			// TODO Utils functions to populate the response...
+			boost::beast::http::response<boost::beast::http::string_body> res{boost::beast::http::status::not_found, request.version()};
 			res.set(boost::beast::http::field::server, "0.1");
-			res.set(boost::beast::http::field::content_type, getFileFormat(*file));
+			res.set(boost::beast::http::field::content_type, "text/html");
 			setSession(res, inputSession, session);
-			res.content_length(size);
 			res.keep_alive(request.keep_alive());
+			res.body() = "The resource '" + request.target().to_string() + "' was not found.";
+			res.prepare_payload();
 			return sender(std::move(res));
 		}
-		// TODO Utils functions to populate the response...
-		boost::beast::http::response<boost::beast::http::string_body> res{boost::beast::http::status::not_found, request.version()};
-		res.set(boost::beast::http::field::server, "0.1");
-		res.set(boost::beast::http::field::content_type, "text/html");
-		setSession(res, inputSession, session);
-		res.keep_alive(request.keep_alive());
-		res.body() = "The resource '" + request.target().to_string() + "' was not found.";
-		res.prepare_payload();
-		return sender(std::move(res));
-	}
-	else if(request.method() == boost::beast::http::verb::post)
-	{
-		// TODO Validate URL
-
-		auto userPass = parseUserPass(request.body());
-		if(!userPass || !usersRepository_.checkUser(userPass->first, userPass->second))
+		else if(request.method() == boost::beast::http::verb::post)
 		{
-			// TODO Find a way to add error message
+			// TODO Validate URL
+
+			auto userPass = parseUserPass(request.body());
+			if(!userPass || !usersRepository_.checkUser(userPass->first, userPass->second))
+			{
+				// TODO Find a way to add error message
+				boost::beast::http::response<boost::beast::http::empty_body> res{boost::beast::http::status::see_other, request.version()};
+				res.set(boost::beast::http::field::server, "0.1");
+				res.set(boost::beast::http::field::location, "/");
+				res.keep_alive(request.keep_alive());
+				res.prepare_payload();
+				return sender(std::move(res));
+			}
+
+			User user;
+			user.username = userPass->first;
+			user.guest = false;
+			setUser(session, std::move(user));
+
+			// Redirect to prevent refresh problem: https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections
 			boost::beast::http::response<boost::beast::http::empty_body> res{boost::beast::http::status::see_other, request.version()};
 			res.set(boost::beast::http::field::server, "0.1");
-			res.set(boost::beast::http::field::location, "/");
+			res.set(boost::beast::http::field::location, "/"); // TODO Do we want hardcoded? Do we want to redirect / to index.html and login.html?
 			res.keep_alive(request.keep_alive());
 			res.prepare_payload();
 			return sender(std::move(res));
 		}
 
-		User user;
-		user.username = userPass->first;
-		user.guest = false;
-		setUser(session, std::move(user));
-
-		// Redirect to prevent refresh problem: https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections
-		boost::beast::http::response<boost::beast::http::empty_body> res{boost::beast::http::status::see_other, request.version()};
+		boost::beast::http::response<boost::beast::http::string_body> res{boost::beast::http::status::bad_request, request.version()};
 		res.set(boost::beast::http::field::server, "0.1");
-		res.set(boost::beast::http::field::location, "/"); // TODO Do we want hardcoded? Do we want to redirect / to index.html and login.html?
+		res.set(boost::beast::http::field::content_type, "text/html");
+		setSession(res, inputSession, session);
 		res.keep_alive(request.keep_alive());
+		res.body() = "Unsupported operation";
 		res.prepare_payload();
 		return sender(std::move(res));
 	}
-
-	boost::beast::http::response<boost::beast::http::string_body> res{boost::beast::http::status::bad_request, request.version()};
-	res.set(boost::beast::http::field::server, "0.1");
-	res.set(boost::beast::http::field::content_type, "text/html");
-	setSession(res, inputSession, session);
-	res.keep_alive(request.keep_alive());
-	res.body() = "Unsupported operation";
-	res.prepare_payload();
-	return sender(std::move(res));
+	catch(const std::exception& ex)
+	{
+		std::cerr << "Request exception: " << ex.what() << std::endl;
+		
+		boost::beast::http::response<boost::beast::http::string_body> res{boost::beast::http::status::internal_server_error, request.version()};
+		res.set(boost::beast::http::field::server, "0.1");
+		res.set(boost::beast::http::field::content_type, "text/html");
+		// Can't know if we have a session.
+		res.keep_alive(request.keep_alive());
+		res.body() = "Internal server error";
+		res.prepare_payload();
+		return sender(std::move(res));
+	}
 }
 boost::shared_ptr<WebsocketSession> Server::canAcceptConnection(boost::asio::ip::tcp::socket socket, const boost::beast::http::request<boost::beast::http::string_body>& initial_request, boost::asio::yield_context yield)
 {
