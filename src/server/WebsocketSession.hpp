@@ -4,6 +4,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/streambuf.hpp>
+#include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/websocket/stream.hpp>
 #include <boost/enable_shared_from_this.hpp>
@@ -18,7 +19,7 @@ class WebsocketSession : public boost::enable_shared_from_this<WebsocketSession>
 	std::string session_;
 	std::string endpoint_;
 	boost::asio::streambuf buffer_;
-	boost::beast::websocket::stream<boost::asio::ip::tcp::socket> ws_;
+	boost::beast::websocket::stream<boost::beast::tcp_stream> ws_;
 	std::queue<boost::shared_ptr<const std::string>> queue_; /**< @brief Queue of message to send. Use shared_ptr to save memory on broadcast. */
 	boost::asio::yield_context yield_; // TODO Remove yield in function signature?
 	std::mutex mut_;
