@@ -26,7 +26,7 @@ namespace
 	}
 	struct SessionComparer
 	{
-		const std::string& sessionId;
+		const std::string_view& sessionId;
 
 		bool operator()(const LobbyEnfer::PlayerInfo& player)
 		{
@@ -74,27 +74,11 @@ unsigned short LobbyEnfer::implGetCreatorIndex() const
 }
 void LobbyEnfer::implSendTo(const std::string& session, std::string message, boost::asio::yield_context yield)
 {
-	auto [it, end] = connections_.equal_range(session);
-
-	auto msg = boost::make_shared<std::string>(std::move(message));
-	for(; it != end; ++it)
-	{
-		if(auto conn = it->second.lock())
-		{
-			conn->send(msg, yield);
-		}
-	}
+	utilsSendTo(connections_, session, message, yield);
 }
 void LobbyEnfer::implSendToAll(std::string message, boost::asio::yield_context yield)
 {
-	auto msg = boost::make_shared<std::string>(std::move(message));
-	for(auto& [s, ptr] : connections_)
-	{
-		if(auto conn = ptr.lock())
-		{
-			conn->send(msg, yield);
-		}
-	}
+	utilsSendToAll(connections_, message, yield);
 }
 void LobbyEnfer::implSendStateToAll(boost::asio::yield_context yield)
 {
@@ -117,8 +101,8 @@ void LobbyEnfer::implSendNextAction(boost::asio::yield_context yield)
 			implSendTo(players_[i].sessionId, *std::move(msg), yield);
 	}
 }
-LobbyEnfer::LobbyEnfer(Server* server, std::string creatorSessionId) :
-	Lobby{server},
+LobbyEnfer::LobbyEnfer(Server* server, std::string name, std::string creatorSessionId) :
+	Lobby{server, std::move(name)},
 	creator_{std::move(creatorSessionId)},
 	randomEngine_{}
 {
@@ -130,6 +114,19 @@ LobbyEnfer::LobbyEnfer(Server* server, std::string creatorSessionId) :
 std::optional<std::string> LobbyEnfer::getHtmlFile(const std::string_view&) const
 {
 	return "game/enfer.html";
+}
+bool LobbyEnfer::canJoin(const std::string_view& session)
+{
+	std::lock_guard<std::mutex> l{mut_};
+
+	if(!game_)
+		return true;
+
+	if(game_->state() == State::Finished)
+		return false;
+
+	auto it = std::find_if(players_.begin(), players_.end(), SessionComparer{session});
+	return it != players_.end();
 }
 void LobbyEnfer::join(const boost::shared_ptr<WebsocketSession>& connection, boost::asio::yield_context yield)
 {

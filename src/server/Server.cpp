@@ -100,7 +100,9 @@ Server::Server(boost::asio::io_context& ioc) :
 	std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
 	random_.seed(seed);
 
-	lobbies_.emplace(GLOBAL_ENDPOINT, std::make_shared<GlobalLobby>(this));
+	auto global = std::make_shared<GlobalLobby>(this);
+	lobbies_.emplace(GLOBAL_ENDPOINT, global);
+	observers_.emplace_back(global);
 }
 std::shared_ptr<Lobby> Server::getLobby(const boost::beast::string_view& endpoint)
 {
@@ -253,6 +255,8 @@ void Server::removeConnection(const std::string& session, const std::string& end
 		{
 			std::lock_guard<std::mutex> l{mut_};
 			lobbies_.erase(endpoint);
+			for(auto& observer : observers_)
+				observer->onLobbyDelete(endpoint, yield);
 		}
 	}
 }
@@ -272,9 +276,11 @@ void Server::onMessage(boost::shared_ptr<WebsocketSession> connection, std::istr
 	{
 		std::lock_guard<std::mutex> l{mut_};
 		lobbies_.erase(connection->endpoint());
+		for(auto& observer : observers_)
+			observer->onLobbyDelete(connection->endpoint(), yield);
 	}
 }
-std::string Server::addLobby(std::shared_ptr<Lobby> lobby)
+std::string Server::addLobby(std::shared_ptr<Lobby> lobby, boost::asio::yield_context yield)
 {
 	std::lock_guard<std::mutex> l{mut_};
 
@@ -292,6 +298,8 @@ std::string Server::addLobby(std::shared_ptr<Lobby> lobby)
 	} while (lobbies_.count(name) != 0);
 
 	lobbies_.emplace(name, lobby);
+	for(auto& observer : observers_)
+		observer->onLobbyAdd(name, lobby, yield);
 	return name;
 }
 std::optional<Server::User> Server::getUser(const std::string_view& sessionId)

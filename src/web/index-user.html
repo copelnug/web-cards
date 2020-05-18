@@ -1,0 +1,151 @@
+<html>
+	<head>
+		<meta charset="utf-8"/>
+		<title>Jeu de carte Godin</title>
+
+		<script>
+			let socket = new WebSocket("ws://" + location.host + location.pathname);
+			socket.onopen = function(e) {
+				// Setup?
+			};
+			socket.onclose = function(event) {
+			}
+			socket.onerror = function(error) {
+			};
+
+			function eventStarted(msg) {
+				window.location.href = msg.game;
+			}
+			function eventLobbyAdd(msg) {
+				var root = document.createElement('div');
+				root.id = 'lobby_' + msg.id;
+				root.classList.add('game');
+
+				if(msg.url === undefined) {
+					root.innerText = msg.name;
+				}
+				else {
+					var link = document.createElement('a');
+					link.href = msg.url;
+					link.innerText = msg.name;
+					root.appendChild(link);
+
+					root.onclick = function() {
+						window.location.href = msg.url;
+					};
+				}
+				
+				document.getElementById('game_list').appendChild(root);
+			}
+			function eventLobbyRemove(msg) {
+				var node = document.getElementById('lobby_' + msg.id);
+				
+				if(node !== undefined) {
+					node.parentNode.removeChild(node);
+				}
+			}
+
+			function eventNetwork(msg) {
+				if(msg.type === 'STARTED') {
+					eventStarted(msg);
+				}
+				else if(msg.type === 'LOBBY_ADD') {
+					eventLobbyAdd(msg);
+				}
+				else if(msg.type === 'LOBBY_REMOVE') {
+					eventLobbyRemove(msg);
+				}
+			}
+
+			function gameNameChanged() {
+				var textbox = document.getElementById("game_name");
+				var name = textbox.value.trim();
+				var btn = document.getElementById("game_create");
+				btn.disabled = name === '';
+			}
+
+			function createGame() {
+				var msg = {
+					'type': 'START',
+					'name': document.getElementById('game_name').value.trim()
+				};
+				socket.send(JSON.stringify(msg));
+			}
+
+			socket.onmessage = function(event) {
+				var msg = JSON.parse(event.data);
+				eventNetwork(msg);
+			};
+
+		</script>
+		<style>
+			body>div {
+				display: flex;
+				flex-direction: row;
+				width: 100%;
+				align-items: stretch;
+				text-align: center;
+			}
+			body>div>div {
+				flex-grow: 1;
+				min-height: 90vh;
+				padding: 10px;
+				width: 50%;
+			}
+			#manage {
+				height: 100%;
+			}
+			#manage>div {
+				display: flex;
+				flex-direction: column;
+				height: 100%;
+			}
+			#manage>div>div {
+				flex-grow: 0;
+			}
+			#manage>div>#manage_logout {
+				flex-grow: 1;
+				display: flex;
+				height: inherit;
+			}
+			#manage_logout>a {
+				align-self: flex-end;
+				width: 100%;
+			}
+			.game {
+				border: 1px solid black;
+				border-radius: 5px;
+				padding: 5px;
+				margin: 10px;
+			}
+			.hidden {
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+		<div>
+			<div>
+				<h1>Parties</h1>
+				<div id="game_list">
+				</div>
+			</div>
+			<div>
+				<div id="manage">
+					<div>
+						<div>
+							<h2>Gestion</h2>
+							<input id="game_name" type="text" maxlength="50" oninput="gameNameChanged()" autocomplete="off"></input>
+							<br/>
+							<button id="game_create" onclick="createGame()" disabled="true" autocomplete="off">Create</button>
+						</div>
+						<div id="manage_logout">
+							<a href="">Logout</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
+

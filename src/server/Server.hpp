@@ -27,6 +27,16 @@ class Server
 public:
 	using SessionId = std::string;
 	using Endpoint = std::string;
+
+	class LobbyObserver
+	{
+	public:
+		virtual ~LobbyObserver() = default;
+
+		virtual void onLobbyAdd(const std::string_view& lobbyId, std::shared_ptr<Lobby> lobby, boost::asio::yield_context yield) = 0;
+		virtual void onLobbyDelete(const std::string_view& lobbyId, boost::asio::yield_context yield) = 0;
+	};
+
 	class User
 	{
 	public:
@@ -58,6 +68,7 @@ private:
 	std::map<SessionId, User> users_;
 	std::map<Endpoint, std::shared_ptr<Lobby>> lobbies_;
 	std::mt19937_64 random_;
+	std::vector<std::shared_ptr<LobbyObserver>> observers_;
 	std::mutex mut_;
 
 	std::shared_ptr<Lobby> getLobby(const boost::beast::string_view& endpoint);
@@ -77,7 +88,7 @@ public:
 
 	void onMessage(boost::shared_ptr<WebsocketSession> connection, std::istream& content, boost::asio::yield_context yield);
 
-	std::string addLobby(std::shared_ptr<Lobby> lobby);
+	std::string addLobby(std::shared_ptr<Lobby> lobby, boost::asio::yield_context yield);
 	std::optional<User> getUser(const std::string_view& sessionId);
 	std::optional<User> getUser(const std::string& sessionId);
 

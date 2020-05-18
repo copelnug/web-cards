@@ -37,10 +37,11 @@ private:
 	void implSendStateToAll(boost::asio::yield_context yield);
 	void implSendNextAction(boost::asio::yield_context yield);
 public:
-	LobbyEnfer(Server* server, std::string creatorSessionId);
+	LobbyEnfer(Server* server, std::string name, std::string creatorSessionId);
 
 	virtual std::optional<std::string> getHtmlFile(const std::string_view& session) const override;
 
+	virtual bool canJoin(const std::string_view& session) override;
 	virtual void join(const boost::shared_ptr<WebsocketSession>& connection, boost::asio::yield_context yield) override;
 	virtual bool leave(const std::string& session, boost::asio::yield_context yield) override;
 	virtual bool onMessage(const boost::shared_ptr<WebsocketSession>& connection, const boost::property_tree::ptree& message, boost::asio::yield_context yield) override;
