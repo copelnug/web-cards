@@ -1,5 +1,6 @@
 #include "WebsocketSession.hpp"
 
+#include <boost/asio/spawn.hpp>
 #include <iostream>
 
 #include "Server.hpp"
@@ -76,14 +77,20 @@ void WebsocketSession::send(boost::shared_ptr<const std::string> message, boost:
 {
 	if(addToQueue(queue_, mut_, std::move(message)))
 	{
-		do
-		{
-			boost::beast::error_code ec;
+		auto self = this->shared_from_this();
+		boost::asio::spawn(
+			server_->ioc(),
+			[self, message](boost::asio::yield_context yield) {
+				do
+				{
+					boost::beast::error_code ec;
 
-			const auto& current = front(queue_, mut_);
-			boost::asio::const_buffer buffer{current->c_str(), current->size()};
-			ws_.async_write(buffer, yield[ec]);
-			if(ec) error("Websocket async write failure");
-		} while(popQueue(queue_, mut_));
+					const auto& current = front(self->queue_, self->mut_);
+					boost::asio::const_buffer buffer{current->c_str(), current->size()};
+					self->ws_.async_write(buffer, yield[ec]);
+					if(ec) error("Websocket async write failure");
+				} while(popQueue(self->queue_, self->mut_));
+			}
+		);
 	}
 }

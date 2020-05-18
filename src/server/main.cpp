@@ -107,8 +107,8 @@ int main()
 	const short port = 8080;
 	const int nb_threads = 2;
 
-	Server server;
 	boost::asio::io_context ioc{nb_threads};
+	Server server{ioc};
 
 	boost::asio::spawn(ioc,
 		std::bind(

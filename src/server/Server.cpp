@@ -92,7 +92,8 @@ Server::Sender::Sender(boost::asio::ip::tcp::socket& socket, boost::system::erro
 	yield_{yield},
 	close_{close}
 {}
-Server::Server() :
+Server::Server(boost::asio::io_context& ioc) :
+	ioc_{ioc},
 	fileRepository_{"files.lst"}
 {
 	std::random_device r;

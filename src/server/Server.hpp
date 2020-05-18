@@ -1,6 +1,7 @@
 #ifndef SERVER_SERVER_HPP_INCLUDED
 #define SERVER_SERVER_HPP_INCLUDED
 #include <boost/asio//ip/tcp.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/beast/http/write.hpp>
 #include <boost/beast/http/message.hpp>
@@ -51,6 +52,7 @@ public:
 
 private:
 	// TODO Timeout on session and lobbies
+	boost::asio::io_context& ioc_;
 	UserRepository usersRepository_;
 	FileRepository fileRepository_;
 	std::map<SessionId, User> users_;
@@ -63,7 +65,9 @@ private:
 	std::shared_ptr<Lobby> getLobby(const std::string& endpoint);
 	void setUser(const std::string& sessionId, User user);
 public:
-	Server();
+	Server(boost::asio::io_context& ioc);
+
+	boost::asio::io_context& ioc() { return ioc_; }
 
 	void handleRequest(boost::beast::http::request<boost::beast::http::string_body> request, Sender&& sender);
 
