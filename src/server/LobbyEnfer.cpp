@@ -319,7 +319,7 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 			throw std::runtime_error{"TODO"};
 		}
 
-		return false;
+		return game_ && game_->state() == State::Finished;
 	}
 	// TODO Handle exceptions specific to game and error messages 
 	catch(const Cards::IllegalChoice& ex)
