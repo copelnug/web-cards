@@ -194,7 +194,6 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 
 			User user;
 			user.username = userPass->first;
-			user.guest = false;
 			setUser(session, std::move(user));
 
 			// Redirect to prevent refresh problem: https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections

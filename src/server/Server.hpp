@@ -41,7 +41,6 @@ public:
 	{
 	public:
 		std::string username;
-		bool guest = true;
 	};
 	class Sender
 	{
