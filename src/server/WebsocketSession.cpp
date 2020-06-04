@@ -1,6 +1,8 @@
 #include "WebsocketSession.hpp"
 
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/spawn.hpp>
+#include <boost/beast/websocket/rfc6455.hpp>
 #include <iostream>
 
 #include "Server.hpp"
@@ -29,11 +31,18 @@ namespace
 		queue.pop();
 		return !queue.empty();
 	}
+	boost::beast::tcp_stream setNoTcpTimeout(boost::asio::ip::tcp::socket socket)
+	{
+		// https://www.boost.org/doc/libs/1_71_0/libs/beast/doc/html/beast/using_websocket/timeouts.html
+		boost::beast::tcp_stream tcp_stream{std::move(socket)};
+		tcp_stream.expires_never();
+		return tcp_stream;
+	}
 }
 WebsocketSession::WebsocketSession(Server* server, boost::asio::ip::tcp::socket socket, std::string session, boost::asio::yield_context yield) :
 	server_{std::move(server)},
 	session_{std::move(session)},
-	ws_{std::move(socket)},
+	ws_{setNoTcpTimeout(std::move(socket))},
 	yield_{yield}
 {}
 WebsocketSession::~WebsocketSession()
@@ -59,6 +68,8 @@ void WebsocketSession::run(boost::beast::http::request<boost::beast::http::strin
 	ws_.async_accept(initial_request, yield[ec]);
 	if(ec) return error("Async accept failure");
 
+	ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(boost::beast::role_type::server));
+
 	server_->acceptConnection(this->shared_from_this(), yield);
 
 	for(;;)
@@ -66,12 +77,15 @@ void WebsocketSession::run(boost::beast::http::request<boost::beast::http::strin
 		buffer_.consume(buffer_.size());
 		ws_.async_read(buffer_, yield[ec]);
 		if(ec == boost::beast::websocket::error::closed)
+			return;
+		if(ec == boost::beast::error::timeout)
 			break;
 		if(ec) return error("Websocket async read failure");
 
 		std::istream is{&buffer_};
 		server_->onMessage(this->shared_from_this(), is, yield);
 	}
+	ws_.async_close(boost::beast::websocket::close_reason("Timeout"), yield);
 }
 void WebsocketSession::send(boost::shared_ptr<const std::string> message, boost::asio::yield_context yield)
 {
