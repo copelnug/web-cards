@@ -1215,6 +1215,12 @@ TEST_CASE("Serialize a enfer game waiting message", "[LobbyEnfer][LobbyEnfer_ser
 			R"_({"type": "STATUS", "msg": "La partie est terminée"})_"
 		});
 	}
+	SECTION("Waiting for host")
+	{
+		CHECK_THAT(LobbyEnfer::serializeWaitingHost(), StrEqualIgnoreSpaces{
+			R"_({"type": "STATUS", "msg": "En attente du créateur de la partie"})_"
+		});
+	}
 }
 TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 {
@@ -1240,6 +1246,7 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 	const auto serializeWaitingChoose = LobbyEnfer::serializeWaitingChoose;
 	const auto serializeWaitingNext = LobbyEnfer::serializeWaitingNext;
 	const auto serializeEndGame = LobbyEnfer::serializeEndGame;
+	const auto serializeWaitingHost = LobbyEnfer::serializeWaitingHost;
 
 	std::seed_seq seed{1, 2, 3, 4, 5, 6, 7, 8};
 	
@@ -1252,6 +1259,10 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		CHECK(serializeCurrentEvent(Players, game, 1, 1) == serializeHostStart());
 		CHECK(serializeCurrentEvent(Players, game, 2, 1) == serializeAskUsername(Players[2].username));
 		CHECK(serializeCurrentEvent(Players, game, 3, 1) == serializeWaitingStart(Players[1].username));
+
+		CHECK(serializeCurrentEvent(Players, game, 0, {}) == serializeWaitingHost());
+		CHECK(serializeCurrentEvent(Players, game, 2, {}) == serializeAskUsername(Players[2].username));
+		CHECK(serializeCurrentEvent(Players, game, 3, {}) == serializeWaitingHost());
 	}
 	SECTION("Set target")
 	{
@@ -1286,6 +1297,11 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingTarget(Players[2].username));
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskTarget(3, game.roundState()));
 		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingTarget(Players[2].username));
+
+		CHECK(serializeCurrentEvent(Players, game, 0, {}) == serializeWaitingTarget(Players[2].username));
+		CHECK(serializeCurrentEvent(Players, game, 1, {}) == serializeWaitingTarget(Players[2].username));
+		CHECK(serializeCurrentEvent(Players, game, 2, {}) == serializeAskTarget(3, game.roundState()));
+		CHECK(serializeCurrentEvent(Players, game, 3, {}) == serializeWaitingTarget(Players[2].username));
 	}
 	SECTION("Ready to play")
 	{
@@ -1321,6 +1337,11 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2].username, true, true));
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard(true));
 		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2].username, true, true));
+
+		CHECK(serializeCurrentEvent(Players, game, 0, {}) == serializeWaitingChoose(Players[2].username, true, true));
+		CHECK(serializeCurrentEvent(Players, game, 1, {}) == serializeWaitingChoose(Players[2].username, true, true));
+		CHECK(serializeCurrentEvent(Players, game, 2, {}) == serializeAskChooseCard(true));
+		CHECK(serializeCurrentEvent(Players, game, 3, {}) == serializeWaitingChoose(Players[2].username, true, true));
 	}
 	SECTION("Start second hand")
 	{
@@ -1356,6 +1377,11 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2].username, false, true));
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard(true));
 		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2].username, false, true));
+
+		CHECK(serializeCurrentEvent(Players, game, 0, {}) == serializeWaitingChoose(Players[2].username, false, true));
+		CHECK(serializeCurrentEvent(Players, game, 1, {}) == serializeWaitingChoose(Players[2].username, false, true));
+		CHECK(serializeCurrentEvent(Players, game, 2, {}) == serializeAskChooseCard(true));
+		CHECK(serializeCurrentEvent(Players, game, 3, {}) == serializeWaitingChoose(Players[2].username, false, true));
 	}
 	SECTION("Play in progress")
 	{
@@ -1391,6 +1417,11 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		CHECK(serializeCurrentEvent(Players, game, 1, 0) == serializeWaitingChoose(Players[2].username, false, false));
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeAskChooseCard(false));
 		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeWaitingChoose(Players[2].username, false, false));
+
+		CHECK(serializeCurrentEvent(Players, game, 0, {}) == serializeWaitingChoose(Players[2].username, false, false));
+		CHECK(serializeCurrentEvent(Players, game, 1, {}) == serializeWaitingChoose(Players[2].username, false, false));
+		CHECK(serializeCurrentEvent(Players, game, 2, {}) == serializeAskChooseCard(false));
+		CHECK(serializeCurrentEvent(Players, game, 3, {}) == serializeWaitingChoose(Players[2].username, false, false));
 	}
 	SECTION("Round finished")
 	{
@@ -1431,6 +1462,12 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		CHECK(serializeCurrentEvent(Players, game, 4, 0) == serializeWaitingNext(Players[0].username));
 
 		CHECK(serializeCurrentEvent(Players, game, 0, 1) == serializeWaitingNext(Players[1].username));
+
+		CHECK(serializeCurrentEvent(Players, game, 0, {}) == serializeWaitingHost());
+		CHECK(serializeCurrentEvent(Players, game, 1, {}) == serializeWaitingHost());
+		CHECK(serializeCurrentEvent(Players, game, 2, {}) == serializeWaitingHost());
+		CHECK(serializeCurrentEvent(Players, game, 3, {}) == serializeWaitingHost());
+		CHECK(serializeCurrentEvent(Players, game, 4, {}) == serializeWaitingHost());
 	}
 	SECTION("Game finished")
 	{
@@ -1477,6 +1514,12 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 		CHECK(serializeCurrentEvent(Players, game, 2, 0) == serializeEndGame());
 		CHECK(serializeCurrentEvent(Players, game, 3, 0) == serializeEndGame());
 		CHECK(serializeCurrentEvent(Players, game, 4, 0) == serializeEndGame());
+
+		CHECK(serializeCurrentEvent(Players, game, 0, {}) == serializeEndGame());
+		CHECK(serializeCurrentEvent(Players, game, 1, {}) == serializeEndGame());
+		CHECK(serializeCurrentEvent(Players, game, 2, {}) == serializeEndGame());
+		CHECK(serializeCurrentEvent(Players, game, 3, {}) == serializeEndGame());
+		CHECK(serializeCurrentEvent(Players, game, 4, {}) == serializeEndGame());
 	}
 }
 TEST_CASE("Serialize the round informations", "[LobbyEnfer][LobbyEnfer_serialize]")

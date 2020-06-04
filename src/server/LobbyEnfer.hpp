@@ -30,7 +30,7 @@ private:
 	std::mt19937_64 randomEngine_;
 	std::mutex mut_;
 
-	unsigned short implGetCreatorIndex() const;
+	std::optional<unsigned short> implGetCreatorIndex() const;
 
 	void implSendTo(const std::string& session, std::string message, boost::asio::yield_context yield);
 	void implSendToAll(std::string message, boost::asio::yield_context yield);
@@ -55,7 +55,7 @@ public:
 	static std::string serializeAskChooseCard(bool newHand);
 	static std::string serializeAskNextRound();
 
-	static std::optional<std::string> serializeCurrentEvent(const std::vector<PlayerInfo>& players, const std::optional<Cards::Enfer::Game>& game, unsigned short player, unsigned short creatorIndex);
+	static std::optional<std::string> serializeCurrentEvent(const std::vector<PlayerInfo>& players, const std::optional<Cards::Enfer::Game>& game, unsigned short player, const std::optional<unsigned short>& creatorIndex);
 	static std::string serializeRoundInfos(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus);
 	
 	// Error message
@@ -69,6 +69,7 @@ public:
 	static std::string serializeWaitingChoose(const std::string& username, bool isFirstHand, bool newHand);
 	static std::string serializeWaitingNext(const std::string& username);
 	static std::string serializeEndGame();
+	static std::string serializeWaitingHost();
 };
 
 std::string toJsonString(const Cards::Enfer::Round::PlayerStatus& status);

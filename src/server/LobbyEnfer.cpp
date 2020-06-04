@@ -5,6 +5,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <iostream>
+#include <optional>
 #include <random>
 #include <sstream>
 #include <stdexcept>
@@ -68,9 +69,12 @@ LobbyEnfer::PlayerInfo::PlayerInfo(std::string sessionId, std::string username) 
 	sessionId{std::move(sessionId)},
 	username{std::move(username)}
 {}
-unsigned short LobbyEnfer::implGetCreatorIndex() const
+std::optional<unsigned short> LobbyEnfer::implGetCreatorIndex() const
 {
-	return std::find_if(players_.begin(), players_.end(), SessionComparer{creator_}) - players_.begin();
+	auto it = std::find_if(players_.begin(), players_.end(), SessionComparer{creator_});
+	if(it != players_.end())
+		return it - players_.begin();
+	return {};
 }
 void LobbyEnfer::implSendTo(const std::string& session, std::string message, boost::asio::yield_context yield)
 {
@@ -92,7 +96,7 @@ void LobbyEnfer::implSendStateToAll(boost::asio::yield_context yield)
 }
 void LobbyEnfer::implSendNextAction(boost::asio::yield_context yield)
 {
-	unsigned short creatorIndex = implGetCreatorIndex();
+	auto creatorIndex = implGetCreatorIndex();
 
 	for(unsigned short i = 0; i < players_.size(); ++i)
 	{
@@ -341,8 +345,7 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 	catch(...)
 	{
 		std::cerr << "Unnexpected exception" << std::endl;
-		implSendStateToAll(yield);
-		implSendNextAction(yield);
+		utilsSendToAll(connections_, serializeStatusHelper(TRAD("Erreur serveur. Demandez à l’administrateur si vous pouvez rafraichir la page.")), yield);
 		return false;
 	}
 }
@@ -622,16 +625,18 @@ std::string LobbyEnfer::serializeAskNextRound()
 	pt::write_json(out, msg);
 	return out.str();
 }
-std::optional<std::string> LobbyEnfer::serializeCurrentEvent(const std::vector<PlayerInfo>& players, const std::optional<Cards::Enfer::Game>& game, unsigned short player, unsigned short creatorIndex)
+std::optional<std::string> LobbyEnfer::serializeCurrentEvent(const std::vector<PlayerInfo>& players, const std::optional<Cards::Enfer::Game>& game, unsigned short player, const std::optional<unsigned short>& creatorIndex)
 {
 	if(!game)
 	{
-		if(player == creatorIndex)
-			return serializeHostStart();
-		else if(players.at(player).username.empty())
+		if(players.at(player).username.empty())
 			return serializeAskUsername();
+		else if(player == creatorIndex)
+			return serializeHostStart();
+		else if(creatorIndex)
+			return serializeWaitingStart(players.at(*creatorIndex).username);
 		else
-			return serializeWaitingStart(players.at(creatorIndex).username);
+			return serializeWaitingHost();
 	}
 
 	switch(game->state())
@@ -649,8 +654,10 @@ std::optional<std::string> LobbyEnfer::serializeCurrentEvent(const std::vector<P
 		case State::GotoNext:
 			if(player == creatorIndex)
 				return serializeAskNextRound();
+			else if(creatorIndex)
+				return serializeWaitingNext(players.at(*creatorIndex).username);
 			else
-				return serializeWaitingNext(players.at(creatorIndex).username);
+				return serializeWaitingHost();
 		case State::Finished:
 			return serializeEndGame();
 	}
@@ -753,6 +760,13 @@ std::string LobbyEnfer::serializeWaitingNext(const std::string& username)
 std::string LobbyEnfer::serializeEndGame()
 {
 	return serializeStatusHelper("La partie est terminée");
+}
+std::string LobbyEnfer::serializeWaitingHost()
+{
+	// TODO Use std::format
+	std::ostringstream out;
+	out << TRAD("En attente du créateur de la partie");
+	return serializeStatusHelper(std::move(out).str());
 }
 std::string toJsonString(const Cards::Enfer::Round::PlayerStatus& status)
 {
