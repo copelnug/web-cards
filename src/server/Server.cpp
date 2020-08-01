@@ -5,9 +5,11 @@
 #include <boost/beast/core/buffers_to_string.hpp>
 #include <boost/beast/http/empty_body.hpp>
 #include <boost/beast/http/status.hpp>
+#include <boost/chrono.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <ctime>
 #include <iostream>
 #include <mutex>
 #include <random>
@@ -33,24 +35,45 @@ namespace
 		std::vector<std::string> parts;
 		boost::split(parts, s, boost::is_any_of(";")); // TODO can we use string_view?
 
+		// Because we once did a mistake and created cookies for subpath, we have
+		// to extract the last cookie (which is the one for the root (/) ). This
+		// prevent bugs where the user is not recognized as the same on different page:
+		// > Creator of the game not recognized.
+		// > User cannot rejoin the game from the first page.
+		std::optional<std::string> session;
+
 		for(auto& part : parts)
 		{
 			auto pos = part.find('=');
-			if(part.substr(0, pos) == "session") // TODO Use string_view
+			auto title = part.substr(0, pos);
+			// Sessions after the first one may contains space characters at the beginning.
+			while(title.starts_with(" "))
+				title.erase(0,1);
+
+			if(title == "session") // TODO Use string_view
 			{
-				return part.substr(pos+1);
+				session = part.substr(pos+1);
 			}
 		}
-		return {};
+		return session;
 	}
 	template <typename Resp>
-	void setSession(Resp& resp, std::optional<std::string>& receivedSession, std::string session)
+	void setSession(Resp& resp, std::string session)
 	{
-		// TODO Find a better way to handle this
-		if(!receivedSession)
-		{
-			resp.set(boost::beast::http::field::set_cookie, "session=" + session); // TODO Format
-		}
+		/*auto limit = std::chrono::system_clock::now();
+		limit += std::chrono::hours(30*24);
+		resp.set(boost::beast::http::field::set_cookie, std::format("session={0}; Expires={1:%a, %d %b %Y %H:%M:00 GMT", session, limit));*/
+
+		time_t limit = time(nullptr);
+		limit += 30*24*60*60; // Add 30 days
+
+		struct tm converted;
+		gmtime_r(&limit, &converted);
+		char buffer[200];
+		std::string str{asctime_r(&converted, buffer)};
+		str.insert(3, 1, ',');
+
+		resp.set(boost::beast::http::field::set_cookie, "session=" + session + "; Expires=" + str + " GMT;Path=/;"); // TODO Use Format
 	}
 	std::optional<std::pair<std::string, std::string>> parseUserPass(const boost::beast::string_view& s)
 	{
@@ -161,7 +184,7 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 				};
 				res.set(boost::beast::http::field::server, "0.1");
 				res.set(boost::beast::http::field::content_type, getFileFormat(*file));
-				setSession(res, inputSession, session);
+				setSession(res, session);
 				res.content_length(size);
 				res.keep_alive(request.keep_alive());
 				return sender(std::move(res));
@@ -170,7 +193,7 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 			boost::beast::http::response<boost::beast::http::string_body> res{boost::beast::http::status::not_found, request.version()};
 			res.set(boost::beast::http::field::server, "0.1");
 			res.set(boost::beast::http::field::content_type, "text/html");
-			setSession(res, inputSession, session);
+			setSession(res, session);
 			res.keep_alive(request.keep_alive());
 			res.body() = "The resource '" + request.target().to_string() + "' was not found.";
 			res.prepare_payload();
@@ -192,6 +215,9 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 				return sender(std::move(res));
 			}
 
+			// Regenerate session on Login. This prevent having somebody reusing an old session.
+			session = generateSessionId();
+
 			User user;
 			user.username = userPass->first;
 			setUser(session, std::move(user));
@@ -200,6 +226,7 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 			boost::beast::http::response<boost::beast::http::empty_body> res{boost::beast::http::status::see_other, request.version()};
 			res.set(boost::beast::http::field::server, "0.1");
 			res.set(boost::beast::http::field::location, "/"); // TODO Do we want hardcoded? Do we want to redirect / to index.html and login.html?
+			setSession(res, session);
 			res.keep_alive(request.keep_alive());
 			res.prepare_payload();
 			return sender(std::move(res));
@@ -208,7 +235,7 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 		boost::beast::http::response<boost::beast::http::string_body> res{boost::beast::http::status::bad_request, request.version()};
 		res.set(boost::beast::http::field::server, "0.1");
 		res.set(boost::beast::http::field::content_type, "text/html");
-		setSession(res, inputSession, session);
+		setSession(res, session);
 		res.keep_alive(request.keep_alive());
 		res.body() = "Unsupported operation";
 		res.prepare_payload();
