@@ -23,7 +23,7 @@
 			}
 		},*/
 		{
-			"label": "compile_cpp",
+			"label": "compile_all",
 			"group": {
 				"kind":"build",
 				"isDefault": true
