@@ -1,6 +1,7 @@
 
 dep_thread = dependency('threads')
-dep_boost_beast = dependency('boost', modules: ['coroutine', 'system'])
+# dep_fmtlib = dependency('fmt') # TODO libfmt-dev
+dep_boost_beast = dependency('boost', modules: ['coroutine', 'system'], version: '>=1.71')
 
 serverlib = library('server',
 	'FileRepository.cpp',
@@ -10,11 +11,13 @@ serverlib = library('server',
 	'Server.cpp',
 	'UserRepository.cpp',
 	'WebsocketSession.cpp',
-	dependencies: [dep_cards, dep_boost_beast, dep_thread]
+	dependencies: [dep_cards, dep_fmtlib, dep_boost_beast, dep_thread],
+	install: true
 )
 dep_server = declare_dependency(include_directories: '.', link_with : serverlib)
 
 executable('server',
 	'main.cpp',
-	dependencies: [dep_server, dep_cards, dep_boost_beast, dep_thread]
+	dependencies: [dep_server, dep_cards, dep_fmtlib, dep_boost_beast, dep_thread],
+	install: true
 )
