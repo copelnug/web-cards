@@ -263,7 +263,7 @@ boost::shared_ptr<WebsocketSession> Server::canAcceptConnection(boost::asio::ip:
 	if(!inputSession)
 	{
 		boost::system::error_code ec;
-		socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+		socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
 		return {};
 	}
 
@@ -271,8 +271,7 @@ boost::shared_ptr<WebsocketSession> Server::canAcceptConnection(boost::asio::ip:
 	{
 		if(!getLobby(initial_request.target().to_string()))
 		{
-			boost::system::error_code ec;
-			socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+			WebsocketSession{this, std::move(socket), *inputSession, yield}.notFound(std::move(initial_request), yield);
 			return {};
 		}
 	}

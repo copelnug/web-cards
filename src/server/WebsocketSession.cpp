@@ -51,7 +51,16 @@ WebsocketSession::~WebsocketSession()
 }
 void WebsocketSession::close()
 {
-	boost::beast::get_lowest_layer(ws_).close();
+	ws_.close(boost::beast::websocket::close_reason(1000));
+}
+void WebsocketSession::notFound(boost::beast::http::request<boost::beast::http::string_body> initial_request, boost::asio::yield_context yield)
+{
+	boost::beast::error_code ec;
+
+	ws_.async_accept(initial_request, yield[ec]);
+	if(ec) return error("Async accept failure");
+
+	ws_.close(boost::beast::websocket::close_reason(4004));
 }
 void WebsocketSession::run(boost::beast::http::request<boost::beast::http::string_body> initial_request, boost::asio::yield_context yield)
 {

@@ -31,16 +31,8 @@
 			let hand = new Map();
 			var choosenCard = undefined;
 
-			// https://stackoverflow.com/a/6944772
-			let socket = new WebSocket("ws://" + location.host + location.pathname);
-			socket.onopen = function(e) {
-				// Setup?
-			};
-			socket.onclose = function(event) {
-			}
-			socket.onerror = function(error) {
-			};
-
+			let socket = undefined;
+			
 			function send(msg) {
 				socket.send(JSON.stringify(msg));
 			}
@@ -450,11 +442,35 @@
 				display.innerText = src.value;
 			}
 
+			let iteration = 0;
+			function connect() {
+				// https://stackoverflow.com/a/6944772
+				socket = new WebSocket("ws://" + location.host + location.pathname);
+				socket.onopen = function(e) {
+					iteration = 0;
+					// Setup?
+				};
+				socket.onclose = function(event) {
+					if(event.code == 4004) {
+						// Game does not exist anymore
+					}
+					else {
+						var time = iteration*1000;
+						if(iteration<60) {
+							++iteration;
+						}
 
-			socket.onmessage = function(event) {
-				var response = JSON.parse(event.data);
-				eventNetworkUpdate(response);
-			};
+						window.setTimeout(connect, time);
+					}
+				}
+				socket.onerror = function(error) {
+				};
+				socket.onmessage = function(event) {
+					var response = JSON.parse(event.data);
+					eventNetworkUpdate(response);
+				};
+			}
+			connect();
 		</script>
 		<style>
 			body {

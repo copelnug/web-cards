@@ -30,6 +30,7 @@ public:
 	~WebsocketSession();
 
 	void close();
+	void notFound(boost::beast::http::request<boost::beast::http::string_body> initial_request, boost::asio::yield_context yield);
 
 	void run(boost::beast::http::request<boost::beast::http::string_body> initial_request, boost::asio::yield_context yield);
 	void send(boost::shared_ptr<const std::string> message, boost::asio::yield_context yield);
