@@ -1212,7 +1212,9 @@ TEST_CASE("Serialize a enfer game waiting message", "[LobbyEnfer][LobbyEnfer_ser
 	SECTION("End game")
 	{
 		CHECK_THAT(LobbyEnfer::serializeEndGame(), StrEqualIgnoreSpaces{
-			R"_({"type": "STATUS", "msg": "La partie est terminée"})_"
+			R"_({"type": "STATUS", "msg": "La partie est terminée", "actions": [)_"
+			R"_(	{"type": "HOME", "label": "Retourner à la page principale"})_"
+			R"_(]})_"
 		});
 	}
 	SECTION("Waiting for host")

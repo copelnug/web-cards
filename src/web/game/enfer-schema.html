@@ -276,6 +276,22 @@
 
 				var label = document.getElementById("play_event_status_msg");
 				label.innerText = msg.msg;
+				
+				if(msg.actions) {
+					msg.actions.forEach( function(action) {
+						var node = document.createElement('p');
+						if(action.type == 'HOME') {
+							var link = document.createElement('a');
+							link.href = '/';
+							link.innerText = action.label;
+							node.appendChild(link);
+						}
+						else {
+							node.innerText = 'Unknown action ' + action.type;
+						}
+						label.appendChild(node);
+					});
+				}
 
 				document.getElementById('play_event_status').classList.remove(HiddenClass);
 			}

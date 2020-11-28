@@ -9,6 +9,7 @@
 #include <random>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 #include "Enfer.hpp"
 #include "Exception.hpp"
@@ -54,15 +55,29 @@ namespace
 
 		return node;
 	}
-	std::string serializeStatusHelper(const std::string& msg)
+	pt::ptree buildStatusNode(const std::string& message)
 	{
 		pt::ptree root;
 		root.put(LobbyEnfer::MSG_ENTRY_TYPE, "STATUS");
-		root.put("msg", msg);
-
+		root.put("msg", message);
+		return root;
+	}
+	void addStatusAction(pt::ptree& array, const std::string& type, const std::string& label)
+	{
+		pt::ptree node;
+		node.put("type", type);
+		node.put("label", label);
+		array.push_back(std::make_pair("", node));
+	}
+	std::string serializeHelper(const pt::ptree& msg)
+	{
 		std::ostringstream out;
-		pt::write_json(out, root);
+		pt::write_json(out, msg);
 		return out.str();
+	}
+	std::string serializeStatusHelper(const std::string& msg)
+	{
+		return serializeHelper(buildStatusNode(msg));
 	}
 }
 LobbyEnfer::PlayerInfo::PlayerInfo(std::string sessionId, std::string username) :
@@ -759,7 +774,11 @@ std::string LobbyEnfer::serializeWaitingNext(const std::string& username)
 }
 std::string LobbyEnfer::serializeEndGame()
 {
-	return serializeStatusHelper("La partie est terminée");
+	pt::ptree root = buildStatusNode("La partie est terminée");
+	pt::ptree array;
+	addStatusAction(array, "HOME", "Retourner à la page principale");
+	root.add_child("actions", std::move(array));
+	return serializeHelper(root);
 }
 std::string LobbyEnfer::serializeWaitingHost()
 {
