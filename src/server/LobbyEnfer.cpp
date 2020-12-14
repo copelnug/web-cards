@@ -175,6 +175,8 @@ void LobbyEnfer::join(const boost::shared_ptr<WebsocketSession>& connection, boo
 		auto msg = serializeCurrentEvent(players_, game_, playerIndex, implGetCreatorIndex());
 		if(msg)
 			connection->send(boost::make_shared<std::string>(*std::move(msg)), yield);
+
+		connection->send(boost::make_shared<std::string>(serializeRoundInfos(game_->roundNbCards(), game_->roundState())), yield);
 		return;
 	}
 	else
@@ -360,7 +362,7 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 	catch(...)
 	{
 		std::cerr << "Unnexpected exception" << std::endl;
-		utilsSendToAll(connections_, serializeStatusHelper(TRAD("Erreur serveur. Demandez à l’administrateur si vous pouvez rafraichir la page.")), yield);
+		connection->send(boost::make_shared<std::string>(serializeStatusHelper(TRAD("Erreur serveur. Demandez à l’administrateur si vous pouvez rafraichir la page."))), yield);
 		return false;
 	}
 }
