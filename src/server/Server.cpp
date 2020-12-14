@@ -192,10 +192,10 @@ void Server::handleRequest(boost::beast::http::request<boost::beast::http::strin
 			// TODO Utils functions to populate the response...
 			boost::beast::http::response<boost::beast::http::string_body> res{boost::beast::http::status::not_found, request.version()};
 			res.set(boost::beast::http::field::server, "0.1");
-			res.set(boost::beast::http::field::content_type, "text/html");
+			res.set(boost::beast::http::field::content_type, "text/html; charset=utf-8");
 			setSession(res, session);
 			res.keep_alive(request.keep_alive());
-			res.body() = "The resource '" + request.target().to_string() + "' was not found.";
+			res.body() = "La page '" + request.target().to_string() + "' n’a pas été trouvée. Cliquez <a href=\"/\">içi pour retourner à la page principale.</a>";
 			res.prepare_payload();
 			return sender(std::move(res));
 		}
