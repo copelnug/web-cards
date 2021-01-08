@@ -1,9 +1,11 @@
 
 dep_thread = dependency('threads')
 # dep_fmtlib = dependency('fmt') # TODO libfmt-dev
+dep_fmtlib = []
 dep_boost_beast = dependency('boost', modules: ['coroutine', 'system'], version: '>=1.71')
 
 serverlib = library('server',
+	'BasicLobby.cpp',
 	'FileRepository.cpp',
 	'GlobalLobby.cpp',
 	'Lobby.cpp',

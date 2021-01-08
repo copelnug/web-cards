@@ -7,43 +7,32 @@
 #include <random>
 #include <string_view>
 
+#include "BasicLobby.hpp"
 #include "Enfer.hpp"
-#include "Lobby.hpp"
 #include "StandardCards.hpp"
 
-class LobbyEnfer : public Lobby
+class LobbyEnfer : public BasicLobby
 {
 public:
-	struct PlayerInfo
-	{
-		PlayerInfo(std::string sessionId, std::string username);
-		
-		std::string sessionId;
-		std::string username;
-	};
 private:
 
-	std::multimap<std::string, boost::weak_ptr<WebsocketSession>> connections_;
 	std::optional<Cards::Enfer::Game> game_;
-	std::vector<PlayerInfo> players_;
-	std::string creator_;
 	std::mt19937_64 randomEngine_;
-	std::mutex mut_;
 
-	std::optional<unsigned short> implGetCreatorIndex() const;
+	void implSendTo(Lock& l, const std::string& session, std::string message, boost::asio::yield_context yield);
+	void implSendToAll(Lock& l, std::string message, boost::asio::yield_context yield);
+	void implSendStateToAll(Lock& l, boost::asio::yield_context yield);
+	void implSendNextAction(Lock& l, boost::asio::yield_context yield);
 
-	void implSendTo(const std::string& session, std::string message, boost::asio::yield_context yield);
-	void implSendToAll(std::string message, boost::asio::yield_context yield);
-	void implSendStateToAll(boost::asio::yield_context yield);
-	void implSendNextAction(boost::asio::yield_context yield);
+protected:
+	virtual GameState gameState(Lock&) const override;
+	virtual void onPlayerJoin(const boost::shared_ptr<WebsocketSession>& connection, Lock& l, unsigned short playerIndex, boost::asio::yield_context yield) override;
+	virtual void onPlayerLeave(Lock& l, boost::asio::yield_context yield) override;
 public:
 	LobbyEnfer(Server* server, std::string name, std::string creatorSessionId);
 
 	virtual std::optional<std::string> getHtmlFile(const std::string_view& session) const override;
 
-	virtual bool canJoin(const std::string_view& session) override;
-	virtual void join(const boost::shared_ptr<WebsocketSession>& connection, boost::asio::yield_context yield) override;
-	virtual bool leave(const std::string& session, boost::asio::yield_context yield) override;
 	virtual bool onMessage(const boost::shared_ptr<WebsocketSession>& connection, const boost::property_tree::ptree& message, boost::asio::yield_context yield) override;
 
 	// Messages
@@ -73,23 +62,6 @@ public:
 };
 
 std::string toJsonString(const Cards::Enfer::Round::PlayerStatus& status);
-
-template <typename T>
-std::optional<T> fromJsonString(const std::string&);
-template <typename T>
-std::optional<T> fromJsonString(const std::optional<std::string>& text)
-{
-	if(!text)
-		return {};
-	return fromJsonString<T>(*text);
-}
-template <typename T>
-std::optional<T> fromJsonString(const boost::optional<std::string>& text)
-{
-	if(!text)
-		return {};
-	return fromJsonString<T>(*text);
-}
 
 const char* toJsonString(const Cards::Standard::Kind& kind);
 template <>

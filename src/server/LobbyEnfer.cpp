@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string_view>
 
+#include "BasicLobby.hpp"
 #include "Enfer.hpp"
 #include "Exception.hpp"
 #include "Server.hpp"
@@ -26,15 +27,6 @@ namespace
 		// TODO
 		return msg;
 	}
-	struct SessionComparer
-	{
-		const std::string_view& sessionId;
-
-		bool operator()(const LobbyEnfer::PlayerInfo& player)
-		{
-			return player.sessionId == sessionId;
-		}
-	};
 	template <typename ...T>
 	std::string TRAD(T&&... val)
 	{
@@ -84,45 +76,73 @@ LobbyEnfer::PlayerInfo::PlayerInfo(std::string sessionId, std::string username) 
 	sessionId{std::move(sessionId)},
 	username{std::move(username)}
 {}
-std::optional<unsigned short> LobbyEnfer::implGetCreatorIndex() const
+void LobbyEnfer::implSendTo(Lock& l, const std::string& session, std::string message, boost::asio::yield_context yield)
 {
-	auto it = std::find_if(players_.begin(), players_.end(), SessionComparer{creator_});
-	if(it != players_.end())
-		return it - players_.begin();
-	return {};
+	utilsSendTo(connections(l), session, message, yield);
 }
-void LobbyEnfer::implSendTo(const std::string& session, std::string message, boost::asio::yield_context yield)
+void LobbyEnfer::implSendToAll(Lock& l, std::string message, boost::asio::yield_context yield)
 {
-	utilsSendTo(connections_, session, message, yield);
+	utilsSendToAll(connections(l), message, yield);
 }
-void LobbyEnfer::implSendToAll(std::string message, boost::asio::yield_context yield)
-{
-	utilsSendToAll(connections_, message, yield);
-}
-void LobbyEnfer::implSendStateToAll(boost::asio::yield_context yield)
+void LobbyEnfer::implSendStateToAll(Lock& l, boost::asio::yield_context yield)
 {
 	if(game_)
 	{
-		for(unsigned short i = 0; i < players_.size(); ++i)
+		for(unsigned short i = 0; i < players(l).size(); ++i)
 		{
-			implSendTo(players_[i].sessionId, serializeGameState(players_, *game_, i), yield);
+			implSendTo(l, players(l)[i].sessionId, serializeGameState(players(l), *game_, i), yield);
 		}
 	}
 }
-void LobbyEnfer::implSendNextAction(boost::asio::yield_context yield)
+void LobbyEnfer::implSendNextAction(Lock& l, boost::asio::yield_context yield)
 {
-	auto creatorIndex = implGetCreatorIndex();
+	auto creatorIndex = implGetCreatorIndex(l);
 
-	for(unsigned short i = 0; i < players_.size(); ++i)
+	for(unsigned short i = 0; i < players(l).size(); ++i)
 	{
-		auto msg = serializeCurrentEvent(players_, game_, i, creatorIndex);
+		auto msg = serializeCurrentEvent(players(l), game_, i, creatorIndex);
 		if(msg)
-			implSendTo(players_[i].sessionId, *std::move(msg), yield);
+			implSendTo(l, players(l)[i].sessionId, *std::move(msg), yield);
 	}
 }
+void LobbyEnfer::onPlayerJoin(const boost::shared_ptr<WebsocketSession>& connection, Lock& l, unsigned short playerIndex, boost::asio::yield_context yield)
+{
+	if(game_)
+	{
+		connection->send(boost::make_shared<std::string>(serializeGameState(players(l), *game_, playerIndex)), yield);
+		auto msg = serializeCurrentEvent(players(l), game_, playerIndex, implGetCreatorIndex(l));
+		if(msg)
+			connection->send(boost::make_shared<std::string>(*std::move(msg)), yield);
+
+		connection->send(boost::make_shared<std::string>(serializeRoundInfos(game_->roundNbCards(), game_->roundState())), yield);
+	}
+	else
+	{
+		implSendToAll(l, serializePlayerList(players(l)), yield);
+		auto msg = serializeCurrentEvent(players(l), game_, playerIndex, implGetCreatorIndex(l));
+		if(msg)
+		{
+			connection->send(boost::make_shared<std::string>(*std::move(msg)), yield);
+		}
+	}
+}
+void LobbyEnfer::onPlayerLeave(Lock& l, boost::asio::yield_context yield)
+{
+	if(!game_)
+	{
+		implSendToAll(l, serializePlayerList(players(l)), yield);
+	}
+}
+BasicLobby::GameState LobbyEnfer::gameState(Lock&) const
+{
+	if(!game_)
+		return GameState::Created;
+	if(game_->state() == Cards::Enfer::State::Finished)
+		return GameState::Finished;
+	return GameState::Started;
+}
 LobbyEnfer::LobbyEnfer(Server* server, std::string name, std::string creatorSessionId) :
-	Lobby{server, std::move(name)},
-	creator_{std::move(creatorSessionId)},
+	BasicLobby{server, std::move(name), std::move(creatorSessionId)},
 	randomEngine_{}
 {
 	// TODO Get seed from caller
@@ -134,123 +154,13 @@ std::optional<std::string> LobbyEnfer::getHtmlFile(const std::string_view&) cons
 {
 	return "game/enfer.html";
 }
-bool LobbyEnfer::canJoin(const std::string_view& session)
-{
-	std::lock_guard<std::mutex> l{mut_};
-
-	if(!game_)
-		return true;
-
-	if(game_->state() == State::Finished)
-		return false;
-
-	auto it = std::find_if(players_.begin(), players_.end(), SessionComparer{session});
-	return it != players_.end();
-}
-void LobbyEnfer::join(const boost::shared_ptr<WebsocketSession>& connection, boost::asio::yield_context yield)
-{
-	// TODO Send when not locked
-	std::lock_guard<std::mutex> l{mut_};
-	if(game_)
-	{
-		if(game_->state() == State::Finished)
-		{
-			connection->close();
-			return;
-		}
-
-		// Are we in the running game?
-		auto it = std::find_if(players_.begin(), players_.end(), SessionComparer{connection->session()});
-		if(it == players_.end())
-		{
-			connection->close();
-			return;
-		}
-
-		unsigned short playerIndex = it - players_.begin();
-
-		connections_.emplace(connection->session(), connection);
-		connection->send(boost::make_shared<std::string>(serializeGameState(players_, *game_, playerIndex)), yield);
-		
-		auto msg = serializeCurrentEvent(players_, game_, playerIndex, implGetCreatorIndex());
-		if(msg)
-			connection->send(boost::make_shared<std::string>(*std::move(msg)), yield);
-
-		connection->send(boost::make_shared<std::string>(serializeRoundInfos(game_->roundNbCards(), game_->roundState())), yield);
-		return;
-	}
-	else
-	{
-		connections_.emplace(connection->session(), connection);
-
-		auto it = std::find_if(players_.begin(), players_.end(), SessionComparer{connection->session()});
-
-		// New player
-		if(it == players_.end())
-		{
-			auto userInfo = server().getUser(connection->session());
-			players_.emplace_back(connection->session(), userInfo ? userInfo->username : "");
-			implSendToAll(serializePlayerList(players_), yield);
-
-			it = std::find_if(players_.begin(), players_.end(), SessionComparer{connection->session()});
-		}
-
-		unsigned short playerIndex = it - players_.begin();
-		auto msg = serializeCurrentEvent(players_, game_, playerIndex, implGetCreatorIndex());
-		if(msg)
-		{
-			connection->send(boost::make_shared<std::string>(*std::move(msg)), yield);
-		}
-	}
-
-}
-bool LobbyEnfer::leave(const std::string& session, boost::asio::yield_context yield)
-{
-	// TODO Send without locking Lobby
-	std::lock_guard<std::mutex> l{mut_};
-
-	bool last = true;
-	auto [it, end] = connections_.equal_range(session);
-	for(; it != end; ++it)
-	{
-		// Remove any expired session
-		if(it->second.expired())
-		{
-			it = connections_.erase(it);
-			break;
-		}
-		// Can't be the last, we keep at least one connection alive
-		last = false;
-	}
-	// Did we delete the last
-	last = last && it == end;
-	
-	if(game_)
-	{
-		if(game_->state() == State::Finished)
-		{
-			return players_.empty();
-		}
-		return false;
-	}
-	else if(last)
-	{
-		players_.erase(std::find_if(players_.begin(), players_.end(), SessionComparer{session}));
-		implSendToAll(serializePlayerList(players_), yield);
-		return players_.empty();
-	}
-	return false;
-}
 bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection, const boost::property_tree::ptree& message, boost::asio::yield_context yield)
 {
 	// TODO send without lock
-	std::lock_guard<std::mutex> l{mut_};
+	auto l = lock();
 	try
 	{
-		auto it = std::find_if(players_.begin(), players_.end(), SessionComparer{connection->session()});
-		if(it == players_.end())
-			throw std::logic_error{"TODO"};
-		unsigned short index = it - players_.begin();
+		unsigned short index = getPlayerIndex(l, connection->session()).value(); // TODO Special message?
 
 		auto type = message.get_optional<std::string>(MSG_ENTRY_TYPE);
 		if(!type)
@@ -261,10 +171,10 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 
 		if(*type == "START")
 		{
-			if(connection->session() != creator_)
+			if(!isCreator(connection->session()))
 				throw std::runtime_error{"TODO"};
 
-			if(players_.size() < 3)
+			if(players(l).size() < 3)
 				throw std::runtime_error{"TODO"};
 			// TODO max number
 
@@ -272,12 +182,12 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 				throw std::runtime_error{"TODO"};
 
 			std::seed_seq seed{randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_(), randomEngine_()};
-			std::shuffle(players_.begin(), players_.end(), randomEngine_);
-			game_ = Cards::Enfer::Game{static_cast<unsigned short>(players_.size()), seed};
+			reorderPlayers(l, randomEngine_);
+			game_ = Cards::Enfer::Game{static_cast<unsigned short>(players(l).size()), seed};
 
-			implSendStateToAll(yield);
-			implSendNextAction(yield);
-			implSendToAll(serializeRoundInfos(game_->roundNbCards(), game_->roundState()), yield);
+			implSendStateToAll(l, yield);
+			implSendNextAction(l, yield);
+			implSendToAll(l, serializeRoundInfos(game_->roundNbCards(), game_->roundState()), yield);
 		}
 		else if(*type == "TARGET")
 		{
@@ -286,9 +196,9 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 				throw std::runtime_error{"TODO"};
 			game_->setTarget(index, *target);
 
-			implSendStateToAll(yield);
-			implSendNextAction(yield);
-			implSendToAll(serializeRoundInfos(game_->roundNbCards(), game_->roundState()), yield);
+			implSendStateToAll(l, yield);
+			implSendNextAction(l, yield);
+			implSendToAll(l, serializeRoundInfos(game_->roundNbCards(), game_->roundState()), yield);
 		}
 		else if(*type == "PLAY")
 		{
@@ -301,17 +211,17 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 		
 			game_->play(index, {*kind, *value});
 
-			implSendStateToAll(yield);
-			implSendNextAction(yield);
+			implSendStateToAll(l, yield);
+			implSendNextAction(l, yield);
 		}
 		else if(*type == "NEXT")
 		{
 			// TODO validate player that can do next
 			game_->gotoNextRound();
 
-			implSendStateToAll(yield);
-			implSendNextAction(yield);
-			implSendToAll(serializeRoundInfos(game_->roundNbCards(), game_->roundState()), yield);
+			implSendStateToAll(l, yield);
+			implSendNextAction(l, yield);
+			implSendToAll(l, serializeRoundInfos(game_->roundNbCards(), game_->roundState()), yield);
 		}
 		else if(*type == "SET_USERNAME")
 		{
@@ -319,16 +229,16 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 			if(!username)
 				throw std::runtime_error{"TODO"};
 
-			players_[index].username = *std::move(username);
+			setUsername(l, index, *std::move(username));
 			if(!game_)
 			{
-				implSendToAll(serializePlayerList(players_), yield);
+				implSendToAll(l, serializePlayerList(players(l)), yield);
 			}
 
-			auto msg = serializeCurrentEvent(players_, game_, index, implGetCreatorIndex());
+			auto msg = serializeCurrentEvent(players(l), game_, index, implGetCreatorIndex(l));
 			if(msg)
 			{
-				implSendTo(connection->session(), *std::move(msg), yield);
+				implSendTo(l, connection->session(), *std::move(msg), yield);
 			}
 		}
 		else
@@ -347,16 +257,22 @@ bool LobbyEnfer::onMessage(const boost::shared_ptr<WebsocketSession>& connection
 	}
 	catch(const Cards::ActionOutOfStep& ex)
 	{
-		implSendStateToAll(yield);
-		implSendNextAction(yield);
+		implSendStateToAll(l, yield);
+		implSendNextAction(l, yield);
 		connection->send(boost::make_shared<std::string>(serializeActionOutOfStep()), yield);
 		return false;
 	}
 	catch(const Cards::NotPlayerTurn& ex)
 	{
-		implSendStateToAll(yield);
-		implSendNextAction(yield);
+		implSendStateToAll(l, yield);
+		implSendNextAction(l, yield);
 		connection->send(boost::make_shared<std::string>(serializeNotPlayerTurn()), yield);
+		return false;
+	}
+	catch(const std::exception& ex)
+	{
+		std::cerr << "Unnexpected exception: " << ex.what() << std::endl;
+		connection->send(boost::make_shared<std::string>(serializeStatusHelper(TRAD("Erreur serveur. Demandez à l’administrateur si vous pouvez rafraichir la page."))), yield);
 		return false;
 	}
 	catch(...)
@@ -383,18 +299,14 @@ std::string LobbyEnfer::serializePlayerList(const std::vector<PlayerInfo>& playe
 	}
 	msg.add_child("players", array);
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeHostStart()
 {
 	pt::ptree msg;
 	msg.put(MSG_ENTRY_TYPE, "ASK_START");
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeAskUsername(const std::string& current)
 {
@@ -403,9 +315,7 @@ std::string LobbyEnfer::serializeAskUsername(const std::string& current)
 	if(!current.empty())
 		msg.put("current", current);
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeGameState(const std::vector<PlayerInfo>& players, const Cards::Enfer::Game& game, unsigned short player)
 {
@@ -552,9 +462,7 @@ std::string LobbyEnfer::serializeGameState(const std::vector<PlayerInfo>& player
 
 	msg.add_child("score", std::move(array));
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeAskTarget(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus)
 {
@@ -615,9 +523,7 @@ std::string LobbyEnfer::serializeAskTarget(unsigned short maxCards, const std::v
 	msg.put("min", 0);
 	msg.put("max", maxCards);
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeAskChooseCard(bool newHand)
 {
@@ -628,9 +534,7 @@ std::string LobbyEnfer::serializeAskChooseCard(bool newHand)
 	else
 		msg.put("msg", "Choisissez une carte.");
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeAskNextRound()
 {
@@ -638,9 +542,7 @@ std::string LobbyEnfer::serializeAskNextRound()
 	msg.put(MSG_ENTRY_TYPE, "ASK_CONFIRM");
 	msg.put("msg", TRAD("Passez à la prochaine manche?"));
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::optional<std::string> LobbyEnfer::serializeCurrentEvent(const std::vector<PlayerInfo>& players, const std::optional<Cards::Enfer::Game>& game, unsigned short player, const std::optional<unsigned short>& creatorIndex)
 {
@@ -702,9 +604,7 @@ std::string LobbyEnfer::serializeRoundInfos(unsigned short maxCards, const std::
 
 	msg.add_child("msg", std::move(array));
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeIllegalChoice()
 {
@@ -712,9 +612,7 @@ std::string LobbyEnfer::serializeIllegalChoice()
 	msg.put(MSG_ENTRY_TYPE, "INPUT_INVALID");
 	msg.put("msg", TRAD("Choix invalide. Réessayez SVP."));
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeActionOutOfStep()
 {
@@ -722,9 +620,7 @@ std::string LobbyEnfer::serializeActionOutOfStep()
 	msg.put(MSG_ENTRY_TYPE, "ERROR");
 	msg.put("msg", TRAD("Erreur. Cette action n’est pas celle attendue."));
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeNotPlayerTurn()
 {
@@ -732,9 +628,7 @@ std::string LobbyEnfer::serializeNotPlayerTurn()
 	msg.put(MSG_ENTRY_TYPE, "ERROR");
 	msg.put("msg", TRAD("Erreur. Ce n’est pas votre tour."));
 
-	std::ostringstream out;
-	pt::write_json(out, msg);
-	return out.str();
+	return serializeHelper(msg);
 }
 std::string LobbyEnfer::serializeWaitingStart(const std::string& username)
 {
