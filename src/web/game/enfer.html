@@ -52,7 +52,7 @@
 				if(id != '') {
 					cardDiv.id = id;
 				}
-				if(active && card.playable) {
+				if(active && card.playable == 'true') {
 					cardDiv.setAttribute('onclick', 'handCardClicked(this)');
 					cardDiv.classList.add('playable');
 				}
