@@ -13,6 +13,8 @@ class BasicLobby : public Lobby
 			
 			std::string sessionId;
 			std::string username;
+
+			const std::string& displayUsername() const;
 		};
 		enum class GameState
 		{

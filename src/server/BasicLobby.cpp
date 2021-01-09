@@ -1,5 +1,6 @@
 #include "BasicLobby.hpp"
 
+#include "Helper.hpp"
 #include "Server.hpp"
 
 namespace
@@ -13,6 +14,17 @@ namespace
 			return player.sessionId == sessionId;
 		}
 	};
+}
+BasicLobby::PlayerInfo::PlayerInfo(std::string sessionId, std::string username) :
+	sessionId{std::move(sessionId)},
+	username{std::move(username)}
+{}
+const std::string& BasicLobby::PlayerInfo::displayUsername() const
+{
+	static std::string Unknown{TRAD("Inconnu")};
+	if(username.empty())
+		return Unknown;
+	return username;
 }
 BasicLobby::BasicLobby(Server* server, std::string name, std::string creatorSessionId) :
 	Lobby{server, std::move(name)},

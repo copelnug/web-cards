@@ -4,6 +4,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include "Helper.hpp"
 #include "LobbyEnfer.hpp"
 #include "Server.hpp"
 #include "WebsocketSession.hpp"
@@ -57,7 +58,7 @@ bool GlobalLobby::leave(const std::string& session, boost::asio::yield_context)
 }
 bool GlobalLobby::onMessage(const boost::shared_ptr<WebsocketSession>& connection, const boost::property_tree::ptree& message, boost::asio::yield_context yield)
 {
-	auto type = message.get_optional<std::string>(MSG_ENTRY_TYPE);
+	auto type = message.get_optional<std::string>(Serialize::MSG_ENTRY_TYPE);
 	if(!type)
 		return false; // TODO Error
 
@@ -74,7 +75,7 @@ bool GlobalLobby::onMessage(const boost::shared_ptr<WebsocketSession>& connectio
 		auto name = server().addLobby(std::make_shared<LobbyEnfer>(&server(), *gameName, connection->session()), yield);
 
 		pt::ptree msg;
-		msg.put(MSG_ENTRY_TYPE, "STARTED");
+		msg.put(Serialize::MSG_ENTRY_TYPE, "STARTED");
 		msg.put("game", name);
 
 		std::ostringstream out;
@@ -130,7 +131,7 @@ void GlobalLobby::onLobbyDelete(const std::string_view& lobbyId, boost::asio::yi
 std::string GlobalLobby::serializeLobbyAdd(const LobbyInfo& lobby, const std::string_view& sessionId)
 {
 	pt::ptree msg;
-	msg.put(MSG_ENTRY_TYPE, "LOBBY_ADD");
+	msg.put(Serialize::MSG_ENTRY_TYPE, "LOBBY_ADD");
 	msg.put("id", lobby.url);
 	msg.put("name", lobby.lobby->name());
 
@@ -146,7 +147,7 @@ std::string GlobalLobby::serializeLobbyAdd(const LobbyInfo& lobby, const std::st
 std::string GlobalLobby::serializeLobbyRemove(const std::string_view& lobbyId)
 {
 	pt::ptree msg;
-	msg.put(MSG_ENTRY_TYPE, "LOBBY_REMOVE");
+	msg.put(Serialize::MSG_ENTRY_TYPE, "LOBBY_REMOVE");
 	msg.put("id", lobbyId);
 
 	std::ostringstream out;

@@ -2,6 +2,7 @@
 #include <random>
 
 #include "Enfer.hpp"
+#include "Helper.hpp"
 #include "LobbyEnfer.hpp"
 #include "StandardCards.hpp"
 #include "Utils.hpp"
@@ -46,21 +47,6 @@ TEST_CASE("Serialize a enfer player list", "[LobbyEnfer][LobbyEnfer_serialize]")
 		R"_(		"Anna")_"
 		R"_(	])_"
 		R"_(})_"
-	});
-}
-TEST_CASE("Serialize a enfer game message to ask permission to start", "[LobbyEnfer][LobbyEnfer_serialize]")
-{
-	CHECK_THAT(LobbyEnfer::serializeHostStart(), StrEqualIgnoreSpaces{
-		R"_({"type": "ASK_START"})_"
-	});
-}
-TEST_CASE("Serialize a enfer game message to ask for username", "[LobbyEnfer][LobbyEnfer_serialize]")
-{
-	CHECK_THAT(LobbyEnfer::serializeAskUsername(""), StrEqualIgnoreSpaces{
-		R"_({"type": "ASK_USERNAME"})_"
-	});
-	CHECK_THAT(LobbyEnfer::serializeAskUsername("old"), StrEqualIgnoreSpaces{
-		R"_({"type": "ASK_USERNAME", "current": "old"})_"
 	});
 }
 TEST_CASE("Serialize a enfer game state", "[LobbyEnfer][LobbyEnfer_serialize]")
@@ -1153,35 +1139,8 @@ TEST_CASE("Serialize a enfer game message to ask before starting next round", "[
 		R"_({"type": "ASK_CONFIRM", "msg": "Passez à la prochaine manche?"})_"
 	});
 }
-TEST_CASE("Serialize a enfer game error message", "[LobbyEnfer][LobbyEnfer_serialize]")
+TEST_CASE("Serialize a enfer game waiting messages", "[LobbyEnfer][LobbyEnfer_serialize]")
 {
-	SECTION("Illegal choice")
-	{
-		CHECK_THAT(LobbyEnfer::serializeIllegalChoice(), StrEqualIgnoreSpaces{
-			R"_({"type": "INPUT_INVALID", "msg": "Choix invalide. Réessayez SVP."})_"
-		});
-	}
-	SECTION("Illegal choice")
-	{
-		CHECK_THAT(LobbyEnfer::serializeActionOutOfStep(), StrEqualIgnoreSpaces{
-			R"_({"type": "ERROR", "msg": "Erreur. Cette action n’est pas celle attendue."})_"
-		});
-	}
-	SECTION("Illegal choice")
-	{
-		CHECK_THAT(LobbyEnfer::serializeNotPlayerTurn(), StrEqualIgnoreSpaces{
-			R"_({"type": "ERROR", "msg": "Erreur. Ce n’est pas votre tour."})_"
-		});
-	}
-}
-TEST_CASE("Serialize a enfer game waiting message", "[LobbyEnfer][LobbyEnfer_serialize]")
-{
-	SECTION("Waiting for start")
-	{
-		CHECK_THAT(LobbyEnfer::serializeWaitingStart("Unittest"), StrEqualIgnoreSpaces{
-			R"_({"type": "STATUS", "msg": "En attente du début de la partie déclaré par Unittest"})_"
-		});
-	}
 	SECTION("Waiting for target")
 	{
 		CHECK_THAT(LobbyEnfer::serializeWaitingTarget("Unittest"), StrEqualIgnoreSpaces{
@@ -1209,20 +1168,6 @@ TEST_CASE("Serialize a enfer game waiting message", "[LobbyEnfer][LobbyEnfer_ser
 			R"_({"type": "STATUS", "msg": "En attente du début de la prochaine manche déclaré par Unittest"})_"
 		});
 	}
-	SECTION("End game")
-	{
-		CHECK_THAT(LobbyEnfer::serializeEndGame(), StrEqualIgnoreSpaces{
-			R"_({"type": "STATUS", "msg": "La partie est terminée", "actions": [)_"
-			R"_(	{"type": "HOME", "label": "Retourner à la page principale"})_"
-			R"_(]})_"
-		});
-	}
-	SECTION("Waiting for host")
-	{
-		CHECK_THAT(LobbyEnfer::serializeWaitingHost(), StrEqualIgnoreSpaces{
-			R"_({"type": "STATUS", "msg": "En attente du créateur de la partie"})_"
-		});
-	}
 }
 TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 {
@@ -1237,18 +1182,18 @@ TEST_CASE("Serialize the current event", "[LobbyEnfer][LobbyEnfer_serialize]")
 
 	const auto serializeCurrentEvent = LobbyEnfer::serializeCurrentEvent;
 
-	const auto serializeHostStart = LobbyEnfer::serializeHostStart;
-	const auto serializeAskUsername = LobbyEnfer::serializeAskUsername;
+	const auto serializeHostStart = Serialize::hostStart;
+	const auto serializeAskUsername = Serialize::askUsername;
 	const auto serializeAskTarget = LobbyEnfer::serializeAskTarget;
 	const auto serializeAskChooseCard = LobbyEnfer::serializeAskChooseCard;
 	const auto serializeAskNextRound = LobbyEnfer::serializeAskNextRound;
 
-	const auto serializeWaitingStart = LobbyEnfer::serializeWaitingStart;
+	const auto serializeWaitingStart = Serialize::waitingStart;
 	const auto serializeWaitingTarget = LobbyEnfer::serializeWaitingTarget;
 	const auto serializeWaitingChoose = LobbyEnfer::serializeWaitingChoose;
 	const auto serializeWaitingNext = LobbyEnfer::serializeWaitingNext;
-	const auto serializeEndGame = LobbyEnfer::serializeEndGame;
-	const auto serializeWaitingHost = LobbyEnfer::serializeWaitingHost;
+	const auto serializeEndGame = Serialize::endGame;
+	const auto serializeWaitingHost = Serialize::waitingHost;
 
 	std::seed_seq seed{1, 2, 3, 4, 5, 6, 7, 8};
 	

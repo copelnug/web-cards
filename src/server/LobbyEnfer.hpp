@@ -37,8 +37,6 @@ public:
 
 	// Messages
 	static std::string serializePlayerList(const std::vector<PlayerInfo>& players);
-	static std::string serializeHostStart();
-	static std::string serializeAskUsername(const std::string& current = "");
 	static std::string serializeGameState(const std::vector<PlayerInfo>& players, const Cards::Enfer::Game& game, unsigned short player);
 	static std::string serializeAskTarget(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus);
 	static std::string serializeAskChooseCard(bool newHand);
@@ -47,18 +45,10 @@ public:
 	static std::optional<std::string> serializeCurrentEvent(const std::vector<PlayerInfo>& players, const std::optional<Cards::Enfer::Game>& game, unsigned short player, const std::optional<unsigned short>& creatorIndex);
 	static std::string serializeRoundInfos(unsigned short maxCards, const std::vector<Cards::Enfer::Round::PlayerStatus>& playersStatus);
 	
-	// Error message
-	static std::string serializeIllegalChoice();
-	static std::string serializeActionOutOfStep();
-	static std::string serializeNotPlayerTurn();
-
 	// Status messages
-	static std::string serializeWaitingStart(const std::string& username);
 	static std::string serializeWaitingTarget(const std::string& username);
 	static std::string serializeWaitingChoose(const std::string& username, bool isFirstHand, bool newHand);
 	static std::string serializeWaitingNext(const std::string& username);
-	static std::string serializeEndGame();
-	static std::string serializeWaitingHost();
 };
 
 std::string toJsonString(const Cards::Enfer::Round::PlayerStatus& status);

@@ -14,8 +14,6 @@ class Lobby
 	Server* server_;
 	std::string name_;
 public:
-	static constexpr const char* const MSG_ENTRY_TYPE = "type";
-
 	Lobby(Server* server, std::string name);
 	virtual ~Lobby() = default;
 
