@@ -6,28 +6,36 @@
 		<script>
 			let HiddenClass = 'hidden';
 
+			// This map is used to indicate which color is selected
 			let ColorClassMap = new Map([
+				['BLUE', 'color_blue'],
+				['YELLOW', 'color_yellow'],
+				['GREEN', 'color_green'],
+				['RED', 'color_red']
+			]);
+			// This map contain the class for each card color
+			let CardColorClassMap = new Map([
 				['BLUE', 'card_blue'],
 				['YELLOW', 'card_yellow'],
 				['GREEN', 'card_green'],
 				['RED', 'card_red']
 			]);
-			let ValueMap = new Map([
-				['ZERO', '0'],
-				['ONE', '1'],
-				['TWO', '2'],
-				['THREE', '3'],
-				['FOUR', '4'],
-				['FIVE', '5'],
-				['SIX', '6'],
-				['SEVEN', '7'],
-				['EIGHT', '8'],
-				['NINE', '9'],
-				['SKIP', 'S'],
-				['PLUS_2', '+2'],
-				['REVERSE', '<>'],
-				['CHANGE', '*'],
-				['PLUS_4', '+4']
+			let CardValueClassMap = new Map([
+				['ZERO', 'card_zero'],
+				['ONE', 'card_one'],
+				['TWO', 'card_two'],
+				['THREE', 'card_three'],
+				['FOUR', 'card_four'],
+				['FIVE', 'card_five'],
+				['SIX', 'card_six'],
+				['SEVEN', 'card_seven'],
+				['EIGHT', 'card_eight'],
+				['NINE', 'card_nine'],
+				['SKIP', 'card_skip'],
+				['PLUS_2', 'card_plus2'],
+				['REVERSE', 'card_reverse'],
+				['CHANGE', 'card_change_color'],
+				['PLUS_4', 'card_plus4']
 			]);
 			
 			let hand = new Map();
@@ -42,20 +50,19 @@
 				var cardDiv = document.createElement('div');
 				cardDiv.classList.add('card');
 
-				if(card.value != undefined) {
+				if(card.value !== '') {
+					cardDiv.classList.add('card_uno');
+					cardDiv.classList.add(CardValueClassMap.get(card.value));
 					if(card.color) {
-						cardDiv.classList.add(ColorClassMap.get(card.color));
+						cardDiv.classList.add(CardColorClassMap.get(card.color));
 					}
 					else {
 						cardDiv.classList.add('card_nocolor');
 					}
-
-					if(card.value !== '') {
-						cardDiv.append(ValueMap.get(card.value));
-					}
 				}
-				else {
-					cardDiv.classList.add('back');
+				else if(card.color)
+				{
+					cardDiv.classList.add(ColorClassMap.get(card.color));
 				}
 				if(id != '') {
 					cardDiv.id = id;
@@ -290,7 +297,7 @@
 				document.getElementById('play_event_next').classList.remove(HiddenClass);
 			}
 			function eventNetworkUpdate(msg) {
-				console.log(JSON.stringify(msg));
+				//console.log(JSON.stringify(msg));
 				if(msg.type === 'SCORE') {
 					eventScore(msg);
 				}
@@ -631,57 +638,97 @@
 			}
 			.card {
 				margin: 1px;
-				padding: 5px;
 				display: inline-block;
 				border: 1px solid black;
-				border-radius: 5px;
-				min-height: 2.45em;
-				min-width: 1.75em;
+				border-radius: 0.33em;
+				height: 2.45em;
+				width: 1.75em;
 				vertical-align: middle;
 				text-align: center;
 				font-size: 3rem;
 				font-weight: bold;
 				background-size: cover;
 				background-repeat: no-repeat;
-				background-color: lightgray;
+			}
+			.card_uno {
+				background-image: url('/images/uno-cards.svg');
+				background-size: calc(14 * (1.75em)) calc(8 * (2.45em));
 			}
 			.playable:hover {
 				border: 2px solid yellow;
 			}
-			.card_blue {
-				background-color: blue;
-			}
 			.card_red {
-				background-color: red;
+				background-position-y: calc(0 * (2.45em) );
 			}
 			.card_yellow {
-				background-color: yellow;
+				background-position-y: calc(-1 * (2.45em) );
 			}
 			.card_green {
-				background-color: green;
+				background-position-y: calc(-2 * (2.45em) );
 			}
-			.card_nocolor {
-				background-color: black;
-				color: lightgrey;
+			.card_blue {
+				background-position-y: calc(-3 * (2.45em) );
+			}
+			.card_zero {
+				background-position-x: calc(-0 * (1.75em));
+			}
+			.card_one {
+				background-position-x: calc(-1 * (1.75em));
+			}
+			.card_two {
+				background-position-x: calc(-2 * (1.75em));
+			}
+			.card_three {
+				background-position-x: calc(-3 * (1.75em));
+			}
+			.card_four {
+				background-position-x: calc(-4 * (1.75em));
+			}
+			.card_five {
+				background-position-x: calc(-5 * (1.75em));
+			}
+			.card_six {
+				background-position-x: calc(-6 * (1.75em));
+			}
+			.card_seven {
+				background-position-x: calc(-7 * (1.75em));
+			}
+			.card_eight {
+				background-position-x: calc(-8 * (1.75em));
+			}
+			.card_nine {
+				background-position-x: calc(-9 * (1.75em));
+			}
+			.card_skip {
+				background-position-x: calc(-10 * (1.75em));
+			}
+			.card_reverse {
+				background-position-x: calc(-11 * (1.75em));
+			}
+			.card_plus2 {
+				background-position-x: calc(-12 * (1.75em));
+			}
+			.card_change_color {
+				background-position-x: calc(-13 * (1.75em));
+			}
+			.card_plus4 {
+				background-position-x: calc(-13 * (1.75em));
+				background-position-y: calc(-4 * (2.45em) );
 			}
 			.color_chooser {
 				width: 40%;
 			}
-			.color_chooser_blue {
+			.color_blue {
 				background-color: blue;
 			}
-			.color_chooser_green {
+			.color_green {
 				background-color: green;
 			}
-			.color_chooser_red {
+			.color_red {
 				background-color: red;
 			}
-			.color_chooser_yellow {
+			.color_yellow {
 				background-color: yellow;
-			}
-			.back {
-				background-image: url('/images/more-leaves-on-green.png');
-				background-repeat: repeat;
 			}
 			.buttonRow>button {
 				margin: 5px;
@@ -751,12 +798,12 @@
 							<div class="event_error hidden"></div>
 							<p>Choisissez une couleur</p>
 							<div>
-								<button class="color_chooser color_chooser_blue" onclick="selectColor('BLUE')">Bleu</button>
-								<button class="color_chooser color_chooser_red" onclick="selectColor('RED')">Rouge</button>
+								<button class="color_chooser color_blue" onclick="selectColor('BLUE')">Bleu</button>
+								<button class="color_chooser color_red" onclick="selectColor('RED')">Rouge</button>
 							</div>
 							<div>
-								<button class="color_chooser color_chooser_yellow" onclick="selectColor('YELLOW')">Jaune</button>
-								<button class="color_chooser color_chooser_green" onclick="selectColor('GREEN')">Vert</button>
+								<button class="color_chooser color_yellow" onclick="selectColor('YELLOW')">Jaune</button>
+								<button class="color_chooser color_green" onclick="selectColor('GREEN')">Vert</button>
 							</div>
 						</div>
 						<div id="play_event_draw" class="play_event_input hidden">
