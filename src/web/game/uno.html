@@ -1,0 +1,791 @@
+<html>
+	<head>
+		<meta charset="utf-8"/>
+		<title>Uno</title>
+
+		<script>
+			let HiddenClass = 'hidden';
+
+			let ColorClassMap = new Map([
+				['BLUE', 'card_blue'],
+				['YELLOW', 'card_yellow'],
+				['GREEN', 'card_green'],
+				['RED', 'card_red']
+			]);
+			let ValueMap = new Map([
+				['ZERO', '0'],
+				['ONE', '1'],
+				['TWO', '2'],
+				['THREE', '3'],
+				['FOUR', '4'],
+				['FIVE', '5'],
+				['SIX', '6'],
+				['SEVEN', '7'],
+				['EIGHT', '8'],
+				['NINE', '9'],
+				['SKIP', 'S'],
+				['PLUS_2', '+2'],
+				['REVERSE', '<>'],
+				['CHANGE', '*'],
+				['PLUS_4', '+4']
+			]);
+			
+			let hand = new Map();
+			var choosenCard = undefined;
+
+			let socket = undefined;
+
+			function send(msg) {
+				socket.send(JSON.stringify(msg));
+			}
+			function utilAddCardTo(parentNode, id, card, active=false) {
+				var cardDiv = document.createElement('div');
+				cardDiv.classList.add('card');
+
+				if(card.value != undefined) {
+					if(card.color) {
+						cardDiv.classList.add(ColorClassMap.get(card.color));
+					}
+					else {
+						cardDiv.classList.add('card_nocolor');
+					}
+
+					if(card.value !== '') {
+						cardDiv.append(ValueMap.get(card.value));
+					}
+				}
+				else {
+					cardDiv.classList.add('back');
+				}
+				if(id != '') {
+					cardDiv.id = id;
+				}
+				if(active && card.playable == 'true') {
+					cardDiv.setAttribute('onclick', 'handCardClicked(this)');
+					cardDiv.classList.add('playable');
+				}
+
+				parentNode.appendChild(cardDiv);
+			}
+			function utilDrawHand(active=false) {
+				var handNode = document.getElementById('play_hand');
+				handNode.innerHTML = '';
+				hand.forEach( function (card, cardId) {
+					hand.set(cardId, card);
+					utilAddCardTo(handNode, cardId, card, active);
+				});
+			}
+
+			function usernameChanged() {
+				var textbox = document.getElementById('play_event_username_input');
+				var username = textbox.value.trim();
+
+				var btn = document.getElementById('play_event_username_accept');
+				btn.disabled = username === '';
+			}
+			function hideAllEvents() {
+				document.getElementById('play_event_username').classList.add(HiddenClass);
+				document.getElementById('play_event_start').classList.add(HiddenClass);
+				document.getElementById('play_event_choose').classList.add(HiddenClass);
+				document.getElementById('play_event_choose_confirm').classList.add(HiddenClass);
+				document.getElementById('play_event_choose_color').classList.add(HiddenClass);
+				document.getElementById('play_event_draw').classList.add(HiddenClass);
+				document.getElementById('play_event_next').classList.add(HiddenClass);
+				document.getElementById('play_event_status').classList.add(HiddenClass);
+
+				var list = document.getElementsByClassName('event_error');
+				for(var i = 0; i < list.length; ++i) {
+					var node = list[i];
+					node.classList.add(HiddenClass);
+					node.innerHTML = '';
+				}
+			}
+
+			function eventScore(msg) {
+				var tableNode = document.getElementById('score_table');
+				tableNode.innerHTML = '';
+				msg.score.forEach(function (itemRow) {
+					var row = document.createElement('tr');
+
+					var entryType = 'td';
+					if(itemRow.style === 'header') {
+						entryType = 'th';
+					}
+					
+					itemRow.data.forEach(function (item) {
+						var node = document.createElement(entryType);
+
+						if(typeof item === 'string') {
+							node.innerText = item;
+						} else {
+							if(item.won == 'true') {
+								var t = document.createElement('img');
+								t.setAttribute('src', '/images/icon-status-success.svg');
+								t.classList.add('icon-status');
+								t.classList.add('left');
+								node.appendChild(t);
+							}
+
+							var t = document.createElement('span');
+							t.innerText = item.points;
+							node.appendChild(t);
+						}
+						row.appendChild(node);
+					});
+
+					tableNode.appendChild(row);
+				});
+			}
+			function eventHand(msg) {
+				hand.clear();
+				if(msg.hand) {
+					msg.hand.forEach( function (card, index) {
+						var cardId = 'hand_card_' + index;
+						hand.set(cardId, card);
+					});
+				}
+
+				if(msg.playing == 'true') {
+					hideAllEvents();
+
+					document.getElementById('play_event_choose_text').innerText = msg.msg;
+
+					if(msg.can_draw == 'true') {
+						document.getElementById('play_event_draw_card').classList.remove(HiddenClass);
+					}
+					else {
+						document.getElementById('play_event_draw_card').classList.add(HiddenClass);
+					}
+					document.getElementById('play_event_choose').classList.remove(HiddenClass);	
+
+					utilDrawHand(true);
+				}
+				else {
+					utilDrawHand();
+				}
+			}
+			function eventPlayers(msg) {
+
+				var parentNode = document.getElementById('players_table');
+				parentNode.innerHTML = ''
+
+				msg.players.forEach( function (player) {
+					var row = document.createElement('tr');
+					
+					var column = document.createElement('td');
+					if(msg.current && player.id === msg.current) {
+						row.classList.add('current_player');
+						if(msg.order === 'REVERSED') {
+							column.innerHTML = '<img src="/images/icon-order-reversed.svg" class="icon-play-direction"/>';
+						}
+						else {
+							column.innerHTML = '<img src="/images/icon-order.svg" class="icon-play-direction"/>';
+						}
+					}
+					row.appendChild(column);
+
+					if(player.cards) {
+						column = document.createElement('td');
+						column.innerText = player.cards;
+						row.appendChild(column);
+
+						column = document.createElement('td');
+						column.innerText = '-';
+						row.appendChild(column);
+					}
+
+					column = document.createElement('td');
+					column.innerText = player.player;
+					row.appendChild(column);
+
+					parentNode.appendChild(row);
+				});
+			}
+			function eventCurrentCard(msg) {
+				var node = document.getElementById('play_current');
+				node.innerHTML = '';
+
+				utilAddCardTo(node, undefined, msg.card);
+				if(msg.color) {
+					utilAddCardTo(node, undefined, {
+						value: '',
+						color: msg.color
+					});
+				}
+			}
+			function eventDrawCards(msg) {
+				hideAllEvents();
+
+				if(msg.cards.length > 1) {
+					document.getElementById('play_event_draw_msg').innerText = 'Nouvelles cartes';
+				}
+				else {
+					document.getElementById('play_event_draw_msg').innerText = 'Nouvelle carte';
+				}
+
+				var cardList = document.getElementById('play_event_draw_cards');
+				cardList.innerHTML = '';
+				msg.cards.forEach( function (card) {
+					choosenCard = card;
+					utilAddCardTo(cardList, undefined, card);
+				});
+				document.getElementById('play_event_draw_play').classList.toggle(HiddenClass, msg.playable.drawn != 'true');
+				document.getElementById('play_event_draw_play_other').classList.toggle(HiddenClass, msg.playable.hand != 'true');
+
+				document.getElementById('play_event_draw').classList.remove(HiddenClass);
+			}
+			function eventStatus(msg) {
+				hideAllEvents();
+
+				var label = document.getElementById('play_event_status_msg');
+				label.innerText = msg.msg;
+				
+				if(msg.actions) {
+					msg.actions.forEach( function(action) {
+						var node = document.createElement('p');
+						if(action.type == 'HOME') {
+							var link = document.createElement('a');
+							link.href = '/';
+							link.innerText = action.label;
+							node.appendChild(link);
+						}
+						else {
+							node.innerText = 'Unknown action ' + action.type;
+						}
+						label.appendChild(node);
+					});
+				}
+
+				document.getElementById('play_event_status').classList.remove(HiddenClass);
+			}
+			function eventError(msg) {
+				var list = document.getElementsByClassName('event_error');
+
+				for(var i = 0; i < list.length; ++i) {
+					var node = list[i];
+					node.innerHTML = '';
+					node.innerText = msg.msg;
+					node.classList.remove(HiddenClass);
+				};
+			}
+			function eventAskUsername() {
+				hideAllEvents();
+
+				var textbox = document.getElementById('play_event_username_input');
+				textbox.value = '';
+				usernameChanged();
+
+				document.getElementById('play_event_username').classList.remove(HiddenClass);
+			}
+			function eventAskStart() {
+				hideAllEvents();
+				document.getElementById('play_event_start').classList.remove(HiddenClass);				
+			}
+			function eventAskNextRound(msg) {
+				hideAllEvents();
+
+				var label = document.getElementById('play_event_next_question');
+				label.innerText = msg.msg;
+
+				document.getElementById('play_event_next').classList.remove(HiddenClass);
+			}
+			function eventNetworkUpdate(msg) {
+				console.log(JSON.stringify(msg));
+				if(msg.type === 'SCORE') {
+					eventScore(msg);
+				}
+				else if(msg.type === 'PLAYERS') {
+					eventPlayers(msg);
+				}
+				else if(msg.type === 'CURRENT_CARD') {
+					eventCurrentCard(msg);
+				}
+				else if(msg.type === 'DRAW') {
+					eventDrawCards(msg);
+				}
+				else if(msg.type === 'STATUS') {
+					eventStatus(msg);
+				}
+				else if(msg.type === 'ERROR') {
+					eventError(msg);
+				}
+				else {
+					if(msg.type === 'ASK_USERNAME') {
+						eventAskUsername();
+					}
+					else if(msg.type === 'HAND') {
+						eventHand(msg);
+					}
+					else if(msg.type === 'ASK_START') {
+						eventAskStart();
+					}
+					else if(msg.type === 'ASK_CONFIRM') {
+						eventAskNextRound(msg);
+					}
+					else {
+						return; // Do not save the last message
+					}
+					// Save last message to allow asking again
+					lastMsg = msg;
+				}
+			}
+			function acceptUsername() {
+				var textbox = document.getElementById('play_event_username_input');
+				var username = textbox.value.trim();
+
+				if(username !== '')
+				{
+					hideAllEvents();
+
+					var msg = {
+						'type': 'SET_USERNAME',
+						'username': username
+					};
+					send(msg);
+				}
+			}
+			function acceptStart() {
+				hideAllEvents();
+				
+				var msg = {
+					'type': 'START'
+				};
+				send(msg);
+			}
+			function drawCard() {
+				hideAllEvents();
+				var msg = {
+					'type': 'DRAW'
+				};
+				send(msg);
+			}
+			function handCardClicked(source) {
+				choosenCard = hand.get(source.id);
+
+				var cardHolder = document.getElementById('play_event_choose_confirm_card');
+				cardHolder.innerHTML = ''
+
+				utilAddCardTo(cardHolder, '', choosenCard);
+
+				hideAllEvents();
+				document.getElementById('play_event_choose_confirm').classList.remove(HiddenClass);	
+			}
+			function acceptCard() {
+				hideAllEvents();
+				utilDrawHand();
+
+				if(choosenCard.color) {
+					var msg = {
+						'type': 'PLAY',
+						'card': choosenCard
+					};
+					send(msg);
+				}
+				else {
+					document.getElementById('play_event_choose_color').classList.remove(HiddenClass);
+				}
+			}
+			function refuseCard() {
+				eventNetworkUpdate(lastMsg)
+			}
+			function selectColor(color) {
+				hideAllEvents();
+				
+				var msg = {
+					'type': 'PLAY',
+					'card': choosenCard,
+					'color': color
+				};
+				send(msg);
+			}
+			function drawAccept() {
+				hideAllEvents();
+				var msg = {
+					'type': 'DRAW_CONFIRM',
+					'play': false
+				};
+				send(msg);
+			}
+			function drawPlay() {
+				acceptCard();
+			}
+			function drawPlayAny() {
+				hideAllEvents();
+				var msg = {
+					'type': 'DRAW_CONFIRM',
+					'play': true
+				};
+				send(msg);
+			}
+			function acceptNext() {
+				hideAllEvents();
+
+				var msg = {
+					'type': 'NEXT'
+				};
+				send(msg);
+			}
+			function end() {
+				hideAllEvents();
+
+				var msg = {
+					'type': 'END'
+				};
+				send(msg);
+			}
+			function toggleView() {
+				var button = document.getElementById('viewButton');
+				var viewPlay = document.getElementById('view_play');
+				if(viewPlay.classList.contains(HiddenClass)) {
+					button.innerText = 'Pts';
+				}
+				else {
+					button.innerText = 'Jeu';
+				}
+				viewPlay.classList.toggle(HiddenClass);
+				document.getElementById('view_score').classList.toggle(HiddenClass);
+			}
+			let iteration = 0;
+			function connect() {
+				// https://stackoverflow.com/a/6944772
+				socket = new WebSocket('ws://' + location.host + location.pathname);
+				socket.onopen = function(e) {
+					iteration = 0;
+					// Setup?
+				};
+				socket.onclose = function(event) {
+					if(event.code == 4004) {
+						// Game does not exist anymore
+					}
+					else {
+						var time = iteration*1000;
+						if(iteration<60) {
+							++iteration;
+						}
+
+						window.setTimeout(connect, time);
+					}
+				}
+				socket.onerror = function(error) {
+				};
+				socket.onmessage = function(event) {
+					var response = JSON.parse(event.data);
+					eventNetworkUpdate(response);
+				};
+			}
+			connect();
+		</script>
+		<style>
+			body {
+				padding: 0px;
+				margin: 0px;
+				background-color:wheat;
+			}
+			button {
+				font-size: 2rem;
+			}
+			.left {
+				float: left;
+			}
+			.smallButton {
+				border: 1px solid black;
+				border-radius: 5px;
+				background-color: grey;
+				width: 50px;
+				height: 50px;
+			}
+			.smallButton:hover {
+				border: 1px solid yellow;
+				background-color: lightgrey;
+			}
+			#viewButton {
+				position: absolute;
+				left: 0px;
+				top: 0px;
+				text-align: center;
+				font-weight: bold;
+			}
+			#view_score {
+				width: 100%;
+				text-align: center;
+			}
+			#view_score table {
+				border-collapse: collapse;
+				width: 98%;
+				margin-left: auto;
+				margin-right: auto;
+				table-layout:fixed;
+			}
+			#view_score td, #view_score th {
+				border: 1px solid black;
+				text-align: center;
+			}
+			#view_score td .icon-status, #view_score th .icon-status {
+				width: 1rem;
+			}
+			#view_play {
+				margin: 0px;
+				padding: 0px;
+				min-width: 100%;
+			}
+			#view_play>div {
+				margin: 0px;
+				width: 100%;
+				/* Minux 50px because on iPad it does not substract the menu bars height from the fullscreen (100vh). Thus, it would cut the bottom of the cards. */
+				min-height: calc(100vh - 50px);
+				display: flex;
+				align-items: stretch;
+				text-align: center;
+				flex-direction: column;
+			}
+			#play_current {
+				width: 100%;
+				display: flex;
+				flex-grow: 0;
+				flex-direction: row;
+				align-items: flex-start;
+				justify-content: center;
+			}
+			#play_current>div {
+				display: inline-block;
+			}
+			#play_current>div>p {
+				margin: 0px;
+			}
+			#play_middle {
+				width: 100%-10px;
+				flex-grow: 1;
+				margin: 10px;
+				padding: 0px;
+				text-align: center;
+				
+				display: flex;
+				flex-direction: row;
+				align-items: stretch;
+			}
+			#play_left_bar {
+				min-width: 10%;
+				flex-grow: 0;
+				padding-top: 50px;
+			}
+			#play_left_bar>p {
+				font-weight: bold;
+			}
+			.current_player {
+				font-weight: bold;
+			}
+			#play_right_bar {
+				min-width: 10%;
+				text-align: left;
+				flex-grow: 0
+			}
+			#play_event {
+				margin: 0 auto;
+				width: 50%;
+				display: block;
+				border-radius: 20px;
+				display: flex;
+				flex-direction: row;
+				align-items: stretch;
+			}
+			#play_event_choose_color>div {
+				width: 100%;
+				margin-bottom: 25px;
+			}
+			.play_event_input {
+				border: 2px solid black;
+				border-radius: 20px;
+				background-color:seashell;
+				display: flex;
+				flex-direction: column;
+				justify-content:center;
+				align-items: center;
+				text-align: center;
+				width: 100%;
+				font-size: 2rem;
+				padding: 5px;
+			}
+			.play_event_notify {
+				border: 1px solid black;
+				border-radius: 20px;
+				background-color:navajowhite;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				text-align: center;
+				width: 100%;
+				font-size: 2rem;
+				padding: 20px;
+			}
+			.event_error {
+				color:darkred;
+			}
+			#play_hand {
+				display: block;
+				align-self: flex-end;
+				flex-direction: row;
+				text-align: center;
+				width: 100%;
+				flex-grow: 0;
+			}
+			.card {
+				margin: 1px;
+				padding: 5px;
+				display: inline-block;
+				border: 1px solid black;
+				border-radius: 5px;
+				min-height: 2.45em;
+				min-width: 1.75em;
+				vertical-align: middle;
+				text-align: center;
+				font-size: 3rem;
+				font-weight: bold;
+				background-size: cover;
+				background-repeat: no-repeat;
+				background-color: lightgray;
+			}
+			.playable:hover {
+				border: 2px solid yellow;
+			}
+			.card_blue {
+				background-color: blue;
+			}
+			.card_red {
+				background-color: red;
+			}
+			.card_yellow {
+				background-color: yellow;
+			}
+			.card_green {
+				background-color: green;
+			}
+			.card_nocolor {
+				background-color: black;
+				color: lightgrey;
+			}
+			.color_chooser {
+				width: 40%;
+			}
+			.color_chooser_blue {
+				background-color: blue;
+			}
+			.color_chooser_green {
+				background-color: green;
+			}
+			.color_chooser_red {
+				background-color: red;
+			}
+			.color_chooser_yellow {
+				background-color: yellow;
+			}
+			.back {
+				background-image: url('/images/more-leaves-on-green.png');
+				background-repeat: repeat;
+			}
+			.buttonRow>button {
+				margin: 5px;
+				margin-top: 20px;
+				display: inline-block;
+			}
+			.icon-play-direction {
+				width: 30px;
+				height: 30px;
+			}
+			.hidden {
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="viewButton" class="smallButton" onclick="toggleView()">Pts</div>
+		<div id="view_score" class="hidden">
+			<h1>Pointage</h1>
+			<table id="score_table">
+			</table>
+		</div>
+
+		<div id="view_play" class="">
+			<div>
+				<div id="play_current">
+				</div>
+				<div id="play_middle">
+					<div id="play_left_bar">
+						<p>Joueurs</p>
+						<table id="players_table"></table>
+					</div>
+					<div id="play_event">
+						<div id="play_event_username" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label for="askUsername">Nom d’utilisateur:</label>
+							<br/>
+							<input id="play_event_username_input" type="text" maxlength="20" oninput="usernameChanged()" />
+							<br/>
+							<button id="play_event_username_accept" onclick="acceptUsername()">Ok</button>
+						</div>
+						<div id="play_event_start" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label>Commencez la partie?</label>
+							<br/>
+							<button id="play_event_start_go" onclick="acceptStart()">Ok</button>
+						</div>
+						<div id="play_event_choose" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label id="play_event_choose_text"></label>
+							<button id="play_event_draw_card" onclick="drawCard()">Ou pigez une carte</button>
+						</div>
+						<div id="play_event_choose_confirm" class="play_event_input hidden">
+							<div>
+								<div class="event_error hidden"></div>
+								<div id="play_event_choose_confirm_card" class="left" >
+								</div>
+								<label>Êtes-vous certain de vouloir jouer cette carte?</label>
+
+								<div class="buttonRow">
+									<button onclick='acceptCard()'>Oui</button>
+									<button onclick='refuseCard()'>Non</button>
+								</div>
+							</div>
+						</div>
+						<div id="play_event_choose_color" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<p>Choisissez une couleur</p>
+							<div>
+								<button class="color_chooser color_chooser_blue" onclick="selectColor('BLUE')">Bleu</button>
+								<button class="color_chooser color_chooser_red" onclick="selectColor('RED')">Rouge</button>
+							</div>
+							<div>
+								<button class="color_chooser color_chooser_yellow" onclick="selectColor('YELLOW')">Jaune</button>
+								<button class="color_chooser color_chooser_green" onclick="selectColor('GREEN')">Vert</button>
+							</div>
+						</div>
+						<div id="play_event_draw" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label id="play_event_draw_msg"></label>
+							<div id="play_event_draw_cards"></div>
+							<div>
+								<button id="play_event_draw_accept" onclick="drawAccept()">Ok</button>
+								<button id="play_event_draw_play" onclick="drawPlay()">La jouer</button>
+								<button id="play_event_draw_play_other" onclick="drawPlayAny()">Jouer une autre</button>
+							</div>
+						</div>
+						<div id="play_event_next" class="play_event_input hidden">
+							<div class="event_error hidden"></div>
+							<label id="play_event_next_question"></label>
+							<br/>
+							<button onclick="acceptNext()">Ok</button>
+							<button onclick="end()">End</button>
+						</div>
+						<div id="play_event_status" class="play_event_notify hidden">
+							<span id="play_event_status_msg"></span>
+						</div>
+					</div>
+					<div id="play_right_bar">
+					</div>
+				</div>
+				<div id="play_hand">
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

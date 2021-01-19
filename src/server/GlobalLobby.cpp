@@ -6,6 +6,7 @@
 
 #include "Helper.hpp"
 #include "LobbyEnfer.hpp"
+#include "LobbyUno.hpp"
 #include "Server.hpp"
 #include "WebsocketSession.hpp"
 
@@ -62,6 +63,10 @@ bool GlobalLobby::onMessage(const boost::shared_ptr<WebsocketSession>& connectio
 	if(!type)
 		return false; // TODO Error
 
+	auto selected_game = message.get_optional<std::string>("game_type");
+	if(!selected_game)
+		return false; // TODO Error
+
 	auto user = server().getUser(connection->session());
 
 	if(*type == "START")
@@ -72,7 +77,14 @@ bool GlobalLobby::onMessage(const boost::shared_ptr<WebsocketSession>& connectio
 		if(!gameName || gameName->empty() || gameName->length() > 50) // TODO Constant? or exception from the constructor?
 			return false; // TODO Error
 
-		auto name = server().addLobby(std::make_shared<LobbyEnfer>(&server(), *gameName, connection->session()), yield);
+		// TODO Implement factory pattern if the number of games increase
+		std::string name;
+		if(*selected_game == "ENFER")
+			name = server().addLobby(std::make_shared<LobbyEnfer>(&server(), *gameName, connection->session()), yield);
+		else if(*selected_game == "UNO")
+			name = server().addLobby(std::make_shared<LobbyUno>(&server(), *gameName, connection->session()), yield);
+		else
+			return false;
 
 		pt::ptree msg;
 		msg.put(Serialize::MSG_ENTRY_TYPE, "STARTED");
