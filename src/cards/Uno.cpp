@@ -294,7 +294,7 @@ void Cards::Uno::Game::restart(unsigned short startingPlayer)
 		if(deck_.size() < 8)
 			throw std::runtime_error{"TODO"};
 
-		auto start = deck_.end() - 7;
+		auto start = deck_.end() - cardsForNbPlayers(hands_.size());
 		auto end = deck_.end();
 
 		hands_[i] = Hand{start, end};
@@ -662,4 +662,12 @@ unsigned int Cards::Uno::calculatePoints(const Hand& hand)
 	}
 
 	return total;
+}
+unsigned int Cards::Uno::cardsForNbPlayers(unsigned short players)
+{
+	if(players <= 8)
+		return 7;
+	if(players > 15)
+		throw std::runtime_error{"TODO Not enough cards for the number of players"};
+	return 6;
 }

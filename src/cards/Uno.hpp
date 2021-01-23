@@ -203,6 +203,7 @@ namespace Cards
 		bool canPlay(const Card& card, const Hand& hand, const PlayedCard& on);
 		void organize(Hand& hand);
 		unsigned int calculatePoints(const Hand& hand);
+		unsigned int cardsForNbPlayers(unsigned short players);
 	}
 }
 
