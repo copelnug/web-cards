@@ -49,7 +49,6 @@
 				cardDiv.classList.add('card');
 
 				if(card.value !== '') {
-					cardDiv.classList.add('card_uno');
 					cardDiv.classList.add(CardValueClassMap.get(card.value));
 					if(card.color) {
 						cardDiv.classList.add(CardColorClassMap.get(card.color));
@@ -607,21 +606,18 @@
 			}
 			.card {
 				margin: 1px;
+				padding: 0px;
 				display: inline-block;
 				border: 1px solid black;
 				border-radius: 0.33em;
 				height: 2.45em;
-				width: 1.75em;
+				width: 1.65em;
 				vertical-align: middle;
 				text-align: center;
 				font-size: 3rem;
 				font-weight: bold;
-				background-size: cover;
-				background-repeat: no-repeat;
-			}
-			.card_uno {
-				background-image: url('/images/uno-cards.svg');
-				background-size: calc(14 * (1.75em)) calc(8 * (2.45em));
+				background-size:cover;
+				background-repeat:no-repeat;
 			}
 			.playable:hover {
 				border: 2px solid yellow;
@@ -638,51 +634,67 @@
 			.card_blue {
 				background-position-y: calc(-3 * (2.45em) );
 			}
+			/* Note: All images must have preserveAspectRatio="none" in the svg tag */
 			.card_zero {
-				background-position-x: calc(-0 * (1.75em));
+				background-image: url('/images/uno/cards/zero.svg');
+				background-size: 100% 400%;
 			}
 			.card_one {
-				background-position-x: calc(-1 * (1.75em));
+				background-image: url('/images/uno/cards/one.svg');
+				background-size: 100% 400%;
 			}
 			.card_two {
-				background-position-x: calc(-2 * (1.75em));
+				background-image: url('/images/uno/cards/two.svg');
+				background-size: 100% 400%;
 			}
 			.card_three {
-				background-position-x: calc(-3 * (1.75em));
+				background-image: url('/images/uno/cards/three.svg');
+				background-size: 100% 400%;
 			}
 			.card_four {
-				background-position-x: calc(-4 * (1.75em));
+				background-image: url('/images/uno/cards/four.svg');
+				background-size: 100% 400%;
 			}
 			.card_five {
-				background-position-x: calc(-5 * (1.75em));
+				background-image: url('/images/uno/cards/five.svg');
+				background-size: 100% 400%;
 			}
 			.card_six {
-				background-position-x: calc(-6 * (1.75em));
+				background-image: url('/images/uno/cards/six.svg');
+				background-size: 100% 400%;
 			}
 			.card_seven {
-				background-position-x: calc(-7 * (1.75em));
+				background-image: url('/images/uno/cards/seven.svg');
+				background-size: 100% 400%;
 			}
 			.card_eight {
-				background-position-x: calc(-8 * (1.75em));
+				background-image: url('/images/uno/cards/eight.svg');
+				background-size: 100% 400%;
 			}
 			.card_nine {
-				background-position-x: calc(-9 * (1.75em));
+				background-image: url('/images/uno/cards/nine.svg');
+				background-size: 100% 400%;
 			}
 			.card_skip {
-				background-position-x: calc(-10 * (1.75em));
+				background-image: url('/images/uno/cards/skip.svg');
+				background-size: 100% 400%;
 			}
 			.card_reverse {
-				background-position-x: calc(-11 * (1.75em));
+				background-image: url('/images/uno/cards/reverse.svg');
+				background-size: 100% 400%;
 			}
 			.card_plus2 {
-				background-position-x: calc(-12 * (1.75em));
+				background-image: url('/images/uno/cards/plus2.svg');
+				background-size: 100% 400%;
 			}
 			.card_change_color {
-				background-position-x: calc(-13 * (1.75em));
+				background-image: url('/images/uno/cards/wildcards.svg');
+				background-size: 100% 200%;
 			}
 			.card_plus4 {
-				background-position-x: calc(-13 * (1.75em));
-				background-position-y: calc(-4 * (2.45em) );
+				background-image: url('/images/uno/cards/wildcards.svg');
+				background-size: 100% 200%;
+				background-position-y: 100%;
 			}
 			.color_chooser {
 				width: 40%;
