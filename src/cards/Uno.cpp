@@ -287,6 +287,10 @@ void Cards::Uno::Game::restart(unsigned short startingPlayer)
 	// Rebuild deck
 	deck_ = createFullDeck();
 	std::shuffle(deck_.begin(), deck_.end(), randomEngine_);
+	// Clear old cards
+	played_.clear();
+	for(auto& h : hands_)
+		h.clear();
 
 	// Make hands
 	for(unsigned short i = 0; i < hands_.size(); ++i)
